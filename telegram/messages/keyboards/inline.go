@@ -1,7 +1,7 @@
 package keyboards
 
 import (
-	"televi/telegram"
+	"gtihub.com/televi-go/televi/telegram"
 )
 
 type InlineKeyboardMarkup struct {

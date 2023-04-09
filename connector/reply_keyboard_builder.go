@@ -1,10 +1,10 @@
 package connector
 
 import (
-	"televi/connector/abstractions"
-	"televi/models/pages"
-	"televi/telegram/dto"
-	"televi/telegram/messages/keyboards"
+	"gtihub.com/televi-go/televi/connector/abstractions"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/telegram/dto"
+	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
 )
 
 type replyKbBuilder struct {

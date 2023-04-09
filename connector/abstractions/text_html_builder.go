@@ -2,8 +2,8 @@ package abstractions
 
 import (
 	"fmt"
+	"gtihub.com/televi-go/televi/models/pages"
 	"strings"
-	"televi/models/pages"
 )
 
 type TextHtmlBuilder struct {

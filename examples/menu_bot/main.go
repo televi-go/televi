@@ -5,11 +5,11 @@ import (
 	"context"
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"gtihub.com/televi-go/televi"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/runner"
 	"log"
 	"os"
-	"televi"
-	"televi/models/pages"
-	"televi/runner"
 )
 
 type RootScene struct {

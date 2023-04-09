@@ -2,9 +2,9 @@ package connector
 
 import (
 	"fmt"
-	"televi/connector/abstractions"
-	"televi/models/pages"
-	"televi/telegram/messages/keyboards"
+	"gtihub.com/televi-go/televi/connector/abstractions"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
 )
 
 type inlineKeyboardBuilder struct {

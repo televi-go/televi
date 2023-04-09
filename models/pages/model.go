@@ -1,7 +1,7 @@
 package pages
 
 import (
-	"televi/models/render"
+	"gtihub.com/televi-go/televi/models/render"
 )
 
 type TransitionKind int

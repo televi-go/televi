@@ -3,13 +3,13 @@ package runner
 import (
 	"context"
 	"fmt"
-	"televi/connector"
-	"televi/delayed"
-	"televi/models/pages"
-	"televi/models/render"
-	"televi/telegram"
-	"televi/telegram/bot"
-	"televi/telegram/dto"
+	"gtihub.com/televi-go/televi/connector"
+	"gtihub.com/televi-go/televi/delayed"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/models/render"
+	"gtihub.com/televi-go/televi/telegram"
+	"gtihub.com/televi-go/televi/telegram/bot"
+	"gtihub.com/televi-go/televi/telegram/dto"
 )
 
 type Runner struct {

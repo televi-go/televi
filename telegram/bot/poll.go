@@ -2,8 +2,8 @@ package bot
 
 import (
 	"context"
-	"televi/telegram"
-	"televi/telegram/dto"
+	"gtihub.com/televi-go/televi/telegram"
+	"gtihub.com/televi-go/televi/telegram/dto"
 )
 
 func (api *Api) getUpdates(request telegram.GetUpdatesRequest, ctx context.Context) (updates []dto.Update, err error) {

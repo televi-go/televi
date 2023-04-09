@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
-	"televi"
-	"televi/models/pages"
+	"gtihub.com/televi-go/televi"
+	"gtihub.com/televi-go/televi/models/pages"
 )
 
 type BasketScene struct {

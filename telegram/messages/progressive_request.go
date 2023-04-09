@@ -1,6 +1,6 @@
 package messages
 
-import "televi/telegram"
+import "gtihub.com/televi-go/televi/telegram"
 
 type ProgressingRequest[TSuccess telegram.Request, TFallback telegram.Request] struct {
 	Success    TSuccess

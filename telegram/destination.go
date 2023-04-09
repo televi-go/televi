@@ -1,8 +1,8 @@
 package telegram
 
 import (
+	"gtihub.com/televi-go/televi/telegram/dto"
 	"strconv"
-	"televi/telegram/dto"
 )
 
 // Destination is a marker interface representing communication end

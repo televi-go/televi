@@ -3,8 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"televi"
-	"televi/models/pages"
+	"gtihub.com/televi-go/televi"
+	"gtihub.com/televi-go/televi/models/pages"
 )
 
 type CategoriesScene struct {

@@ -1,7 +1,7 @@
 package pages
 
 import (
-	"televi/telegram/dto"
+	"gtihub.com/televi-go/televi/telegram/dto"
 )
 
 type TransitPolicy struct {

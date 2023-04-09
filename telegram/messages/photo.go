@@ -1,9 +1,9 @@
 package messages
 
 import (
+	"gtihub.com/televi-go/televi/telegram"
+	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
 	"io"
-	"televi/telegram"
-	"televi/telegram/messages/keyboards"
 )
 
 type MediaMessageBase struct {

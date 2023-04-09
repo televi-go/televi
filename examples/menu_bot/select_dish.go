@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-	"televi"
-	"televi/models/pages"
+	"gtihub.com/televi-go/televi"
+	"gtihub.com/televi-go/televi/models/pages"
 )
 
 type SelectDishScene struct {

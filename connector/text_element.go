@@ -1,11 +1,11 @@
 package connector
 
 import (
-	"televi/connector/abstractions"
-	"televi/models/pages"
-	"televi/models/render"
-	"televi/models/render/results"
-	"televi/telegram/messages/keyboards"
+	"gtihub.com/televi-go/televi/connector/abstractions"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/models/render"
+	"gtihub.com/televi-go/televi/models/render/results"
+	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
 )
 
 type textElementContext struct {

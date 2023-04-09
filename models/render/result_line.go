@@ -2,10 +2,10 @@ package render
 
 import (
 	"fmt"
-	"televi/telegram"
-	"televi/telegram/bot"
-	"televi/telegram/dto"
-	"televi/util"
+	"gtihub.com/televi-go/televi/telegram"
+	"gtihub.com/televi-go/televi/telegram/bot"
+	"gtihub.com/televi-go/televi/telegram/dto"
+	"gtihub.com/televi-go/televi/util"
 	"time"
 )
 

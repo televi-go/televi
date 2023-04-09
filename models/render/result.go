@@ -1,6 +1,6 @@
 package render
 
-import "televi/telegram"
+import "gtihub.com/televi-go/televi/telegram"
 
 type IResult interface {
 	Kind() string

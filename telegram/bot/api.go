@@ -5,10 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"gtihub.com/televi-go/televi/telegram"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"televi/telegram"
 )
 
 type Api struct {

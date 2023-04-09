@@ -1,6 +1,6 @@
 package keyboards
 
-import "televi/telegram"
+import "gtihub.com/televi-go/televi/telegram"
 
 type ReplyMarkup interface {
 	telegram.ParamsWriter

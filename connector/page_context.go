@@ -1,9 +1,9 @@
 package connector
 
 import (
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/models/render"
 	"strconv"
-	"televi/models/pages"
-	"televi/models/render"
 )
 
 type BuildContext struct {

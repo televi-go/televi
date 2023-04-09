@@ -1,8 +1,8 @@
 package render
 
 import (
-	"televi/telegram"
-	"televi/telegram/messages"
+	"gtihub.com/televi-go/televi/telegram"
+	"gtihub.com/televi-go/televi/telegram/messages"
 	"time"
 )
 

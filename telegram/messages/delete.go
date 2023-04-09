@@ -2,7 +2,7 @@ package messages
 
 import (
 	"errors"
-	"televi/telegram"
+	"gtihub.com/televi-go/televi/telegram"
 )
 
 type DeleteMessageRequest struct {

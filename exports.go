@@ -1,6 +1,8 @@
 package televi
 
-import "televi/models/pages"
+import (
+	"gtihub.com/televi-go/televi/models/pages"
+)
 
 type Scene interface {
 	View(ctx BuildContext)

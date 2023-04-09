@@ -2,11 +2,11 @@ package connector
 
 import (
 	"fmt"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/models/render"
+	"gtihub.com/televi-go/televi/models/render/results"
+	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
 	"io"
-	"televi/models/pages"
-	"televi/models/render"
-	"televi/models/render/results"
-	"televi/telegram/messages/keyboards"
 )
 
 type photoElementContext struct {

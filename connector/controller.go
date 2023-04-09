@@ -3,15 +3,16 @@ package connector
 import (
 	"context"
 	"fmt"
+	"gtihub.com/televi-go/televi/delayed"
+	"gtihub.com/televi-go/televi/models"
+	"gtihub.com/televi-go/televi/models/pages"
+	"gtihub.com/televi-go/televi/models/render"
+	"gtihub.com/televi-go/televi/telegram"
+	"gtihub.com/televi-go/televi/telegram/bot"
+	"gtihub.com/televi-go/televi/telegram/dto"
+	"gtihub.com/televi-go/televi/telegram/messages"
 	"log"
-	"televi/delayed"
-	"televi/models"
-	"televi/models/pages"
-	"televi/models/render"
-	"televi/telegram"
-	"televi/telegram/bot"
-	"televi/telegram/dto"
-	"televi/telegram/messages"
+
 	"time"
 )
 
