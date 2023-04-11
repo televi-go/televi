@@ -52,9 +52,6 @@ func (s State[T]) SetFn(fn func(prev T) T) {
 	s.Set(fn(s.Get()))
 }
 
-var nilState *State[int]
-var stateMarkerV stateMarker = nilState
-
 func makePointer(value reflect.Value) reflect.Value {
 	if value.Kind() == reflect.Pointer {
 		return value

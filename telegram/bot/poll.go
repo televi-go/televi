@@ -43,7 +43,7 @@ func (api *Api) Poll(ctx context.Context) <-chan dto.Update {
 			default:
 				updates, err := api.getUpdates(request, ctx)
 				if err != nil {
-					panic(err)
+					continue
 				}
 				for _, update := range updates {
 					if update.UpdateID >= request.Offset {

@@ -8,11 +8,11 @@
       <jdbc-url>jdbc:mysql://localhost:3306/televi</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
-    <data-source source="LOCAL" name="televi_host@localhost" uuid="c673141e-ed9e-4ee9-a205-ccf90911a3be">
+    <data-source source="LOCAL" name="televi_ci@localhost" uuid="173f2670-5b7a-4cef-8623-7b7ce672550c">
       <driver-ref>mysql.8</driver-ref>
       <synchronize>true</synchronize>
       <jdbc-driver>com.mysql.cj.jdbc.Driver</jdbc-driver>
-      <jdbc-url>jdbc:mysql://localhost:3306/televi_host</jdbc-url>
+      <jdbc-url>jdbc:mysql://localhost:3306/televi_ci</jdbc-url>
       <working-dir>$ProjectFileDir$</working-dir>
     </data-source>
   </component>

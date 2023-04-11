@@ -104,16 +104,17 @@ func (controller *Controller) dispatchEvent(event ControllerReactionEvent) {
 	if !hasChanged && !event.InnerStateChanged {
 		return
 	}
-	/*fmt.Println("dispatching render")
-	controller.StateUpdateChannel <- struct{}{}*/
 }
 
 func (controller *Controller) _transitBack() bool {
 	if controller.CurrentModel.Previous == nil {
 		return false
 	}
-
+	if controller.CurrentModel.Origin != nil {
+		go controller.CurrentModel.Origin.Remove(controller.Api)
+	}
 	if controller.CurrentModel.Kind == pages.SeparativeTransition {
+
 		for _, completedResult := range controller.CurrentModel.Result.Line {
 			for _, cleanupRequest := range completedResult.Cleanup(controller.ChatId) {
 				go controller.Api.Request(cleanupRequest)

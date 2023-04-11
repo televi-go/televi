@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/televi.iml" filepath="$PROJECT_DIR$/.idea/televi.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../televi_ci/.idea/televi-ci.iml" filepath="$PROJECT_DIR$/../televi_ci/.idea/televi-ci.iml" />
     </modules>
   </component>
 </project>
