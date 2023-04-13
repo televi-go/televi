@@ -10,6 +10,7 @@ import (
 	"gtihub.com/televi-go/televi/runner"
 	"log"
 	"os"
+	"os/signal"
 )
 
 type RootScene struct {
@@ -88,5 +89,7 @@ create temporary table basket(uid int not null, dish varchar(48) not null, prima
 		log.Fatalln(err)
 	}
 	fmt.Println("starting app")
-	app.Run(context.TODO())
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer cancel()
+	app.Run(ctx)
 }

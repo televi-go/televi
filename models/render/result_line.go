@@ -6,6 +6,7 @@ import (
 	"gtihub.com/televi-go/televi/telegram/bot"
 	"gtihub.com/televi-go/televi/telegram/dto"
 	"gtihub.com/televi-go/televi/util"
+	"sync"
 	"time"
 )
 
@@ -149,7 +150,8 @@ func (resultLine *ResultLine) CompareAndProduce(
 func (resultLine *ResultLine) Run(result CompareResult, api *bot.Api) error {
 
 	var toDelete []*CompletedResult
-
+	wg := sync.WaitGroup{}
+	wg.Add(len(result.Parallel))
 	for _, request := range result.Parallel {
 
 		if request.Slot.MarkedDelete {
@@ -157,6 +159,7 @@ func (resultLine *ResultLine) Run(result CompareResult, api *bot.Api) error {
 		}
 
 		go func(boundRequest BoundRequest) {
+			defer wg.Done()
 			response, err := api.Request(boundRequest.Request)
 			if err != nil {
 				fmt.Println("error with", boundRequest.Request, err)
@@ -198,6 +201,6 @@ func (resultLine *ResultLine) Run(result CompareResult, api *bot.Api) error {
 	}
 
 	resultLine.Line = newResults
-
+	wg.Wait()
 	return nil
 }
