@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"gtihub.com/televi-go/televi/connector"
 	"gtihub.com/televi-go/televi/delayed"
@@ -87,6 +88,11 @@ func NewRunner(token string, ctor func() pages.Scene, dsn string, address string
 	if err != nil {
 		return nil, err
 	}
+
+	if token == "" {
+		return nil, errors.New("no token provided")
+	}
+
 	runner := &Runner{
 		controllers:     map[string]*connector.Controller{},
 		primaryPageCtor: ctor,
