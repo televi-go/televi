@@ -23,8 +23,9 @@ func (selectDishScene SelectDishScene) View(ctx televi.BuildContext) {
 	for i := 0; i < 5; i++ {
 		i := i
 		dishname := fmt.Sprintf("%s dish #%d", cases.Title(language.English).String(selectDishScene.category), i)
-		ctx.TextElement(func(component pages.TextContext) {
+		ctx.PhotoElement(func(component pages.PhotoContext) {
 			_, hasDish := allDishes[dishname]
+			dishAssets[selectDishScene.category][i].Embed(component)
 			component.TextLine(dishname)
 			if hasDish {
 				component.TextLine("You have it in backet")

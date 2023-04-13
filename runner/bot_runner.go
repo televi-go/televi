@@ -31,7 +31,7 @@ func (runner *Runner) getOrCreateController(destination telegram.Destination) *c
 	controller, hasController := runner.controllers[destination.ToString()]
 	if !hasController {
 		fmt.Println("Creating controller for", destination)
-		stateUpdateChannel := make(chan struct{}, 1)
+		stateUpdateChannel := make(chan struct{}, 2)
 		page := runner.primaryPageCtor()
 		pages.MountStates(&page, stateUpdateChannel)
 		controller = &connector.Controller{
@@ -47,7 +47,7 @@ func (runner *Runner) getOrCreateController(destination telegram.Destination) *c
 			},
 			Api:                runner.api,
 			StateUpdateChannel: stateUpdateChannel,
-			EventChannel:       make(chan connector.ControllerReactionEvent, 10),
+			EventChannel:       make(chan connector.ControllerReactionEvent, 100),
 			Scheduler:          runner.scheduler,
 		}
 		runner.controllers[destination.ToString()] = controller

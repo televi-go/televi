@@ -1,9 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	"gtihub.com/televi-go/televi"
 	"gtihub.com/televi-go/televi/models/pages"
@@ -18,11 +18,11 @@ type RootScene struct {
 }
 
 func (rootScene RootScene) View(ctx televi.BuildContext) {
-	imageSource, _ := os.ReadFile("photo_2023-04-03 23.01.17.jpeg")
+
 	ctx.ActivePhoto(func(component pages.ActivePhotoContext) {
 		component.TextLine("Welcome to our progressive online restaurant")
 		component.TextLine("This is our chef")
-		component.Image("chef photo", bytes.NewReader(imageSource)).Spoiler()
+		chefAsset.Embed(component).Spoiler()
 		component.ReplyKeyboard(func(builder pages.ReplyKeyboardBuilder) {
 			builder.ButtonsRow(func(rowBuilder pages.ReplyRowBuilder) {
 				rowBuilder.ActionButton("Menu", func(ctx pages.ReactionContext) {
@@ -34,6 +34,19 @@ func (rootScene RootScene) View(ctx televi.BuildContext) {
 			})
 		})
 	})
+}
+
+var chefAsset televi.ImageAsset
+var dishAssets = map[string]*[5]televi.ImageAsset{
+	"fish":   {},
+	"drinks": {},
+	"bakery": {},
+}
+
+var dishAssetsPath = map[string][5]string{
+	"bakery": {"IMG_4639 2.jpg", "IMG_4640 2.jpg", "IMG_4641 2.jpg", "IMG_4642 3.jpg", "IMG_4642 4.jpg"},
+	"drinks": {"IMG_4645.jpg", "IMG_4645 2.jpg", "IMG_4645 3.jpg", "IMG_4646.jpg", "IMG_4649.jpg"},
+	"fish":   {"IMG_4650.jpg", "IMG_4650 2.jpg", "IMG_4650 3.jpg", "IMG_4650 4.jpg", "IMG_4651.jpg"},
 }
 
 func main() {
@@ -50,12 +63,28 @@ insert into categories (name) values('fish'),('bakery'),('drinks');
 create temporary table basket(uid int not null, dish varchar(48) not null, primary key (uid, dish));
 `)
 
+	assetLoader := televi.NewAssetLoader()
+
+	assetLoader.Add("examples/menu_bot/assets/photo_2023-04-03 23.01.17.jpeg", &chefAsset)
+
+	for category, assets := range dishAssets {
+		for i := 0; i < 5; i++ {
+			assetLoader.Add("examples/menu_bot/assets/"+dishAssetsPath[category][i], &(*assets)[i])
+		}
+	}
+
+	err = assetLoader.Load()
+
+	if err != nil {
+		log.Fatalln("Error loading asset", err)
+	}
+
 	app, err := runner.NewRunner(os.Getenv("Token"), func() pages.Scene {
 		return RootScene{db: db}
 	}, "root:@/televi?parseTime=true", runner.DefaultAPiAddress)
 	if err != nil {
 		log.Fatalln(err)
 	}
-
+	fmt.Println("starting app")
 	app.Run(context.TODO())
 }

@@ -16,9 +16,13 @@ type PageBuildContext interface {
 	GetUserId() int
 }
 
+type PhotoConsumer interface {
+	Image(key string, source io.Reader) ImageOptionsSetter
+}
+
 type PhotoContext interface {
 	TextContext
-	Image(key string, source io.Reader) ImageOptionsSetter
+	PhotoConsumer
 }
 
 type ActiveTextContext interface {
@@ -28,7 +32,7 @@ type ActiveTextContext interface {
 
 type ActivePhotoContext interface {
 	ActiveTextContext
-	Image(key string, source io.Reader) ImageOptionsSetter
+	PhotoConsumer
 }
 
 type ImageOptionsSetter interface {

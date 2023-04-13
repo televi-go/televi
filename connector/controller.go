@@ -30,11 +30,12 @@ type Controller struct {
 }
 
 type TransitionOptions struct {
-	TransitionPage pages.Scene
-	TransitPolicy  pages.TransitPolicy
-	TransitBack    bool
-	TransitToMain  bool
-	OnPerformed    chan bool
+	TransitionPage   pages.Scene
+	TransitPolicy    pages.TransitPolicy
+	TransitBack      bool
+	TransitionOrigin pages.ViewSequenceOrigin
+	TransitToMain    bool
+	OnPerformed      chan bool
 }
 
 type ControllerReactionEvent struct {
@@ -47,21 +48,36 @@ type ControllerReactionEvent struct {
 	transitOptions    *TransitionOptions
 }
 
+type MessageTransitionOrigin struct {
+	destination telegram.Destination
+	messageId   int
+}
+
+func (origin MessageTransitionOrigin) Remove(api *bot.Api) {
+	go api.Request(messages.DeleteMessageRequest{
+		MessageId:   origin.messageId,
+		Destination: origin.destination,
+	})
+}
+
 const rehydrateDelta = time.Hour * 47
 
 func (controller *Controller) dispatchMessage(message *dto.Message) bool {
 	reactCtx := &reactContextImpl{
-		controller: controller,
-		message:    nil,
+		controller:             controller,
+		message:                message,
+		includeTransitToAnchor: controller.ActiveCallbacksModel != controller.CurrentModel,
+		origin: MessageTransitionOrigin{
+			destination: controller.ChatId,
+			messageId:   message.MessageID,
+		},
 	}
 	hasCallbacks := controller.ActiveCallbacks.InvokeButton(pages.EventData{
 		Kind: "message-reply", Payload: message.Text}, reactCtx)
 	if hasCallbacks {
 		return true
 	}
-	return controller.CurrentModel.Callbacks.InvokeOnMessage(&reactContextImpl{
-		controller: controller,
-		message:    message})
+	return controller.CurrentModel.Callbacks.InvokeOnMessage(reactCtx)
 }
 
 func (controller *Controller) dispatchCallback(callback *dto.CallbackQuery) bool {
@@ -111,10 +127,9 @@ func (controller *Controller) _transitBack() bool {
 		return false
 	}
 	if controller.CurrentModel.Origin != nil {
-		go controller.CurrentModel.Origin.Remove(controller.Api)
+		controller.CurrentModel.Origin.Remove(controller.Api)
 	}
 	if controller.CurrentModel.Kind == pages.SeparativeTransition {
-
 		for _, completedResult := range controller.CurrentModel.Result.Line {
 			for _, cleanupRequest := range completedResult.Cleanup(controller.ChatId) {
 				go controller.Api.Request(cleanupRequest)
@@ -129,6 +144,7 @@ func (controller *Controller) _transitBack() bool {
 func (controller *Controller) dispatchTransition(options TransitionOptions) (result bool) {
 
 	defer func() {
+		fmt.Printf("transited to %T\n", controller.CurrentModel.Page)
 		controller.StateUpdateChannel <- struct{}{}
 	}()
 	if options.TransitionPage != nil {
@@ -142,6 +158,7 @@ func (controller *Controller) dispatchTransition(options TransitionOptions) (res
 		controller.CurrentModel = &pages.Model{
 			Page:      options.TransitionPage,
 			Result:    resultLine,
+			Origin:    options.TransitionOrigin,
 			Previous:  controller.CurrentModel,
 			Callbacks: *pages.NewCallbacks(),
 			Kind:      options.TransitPolicy.GetKind(),
@@ -188,7 +205,7 @@ func (controller *Controller) processEvent(event ControllerReactionEvent) (hasCa
 }
 
 func (controller *Controller) render(silent bool) {
-
+	fmt.Printf("rendering %T\n", controller.CurrentModel.Page)
 	if silent {
 		fmt.Println("Rehydration called")
 	}
@@ -222,7 +239,7 @@ func (controller *Controller) render(silent bool) {
 		time.Now().Add(rehydrateDelta),
 		controller.ChatId.ToString(),
 	)
-	fmt.Println("planned rehydrate at", time.Now().Add(rehydrateDelta))
+	//fmt.Println("planned rehydrate at", time.Now().Add(rehydrateDelta))
 	if err != nil {
 		log.Println("Error in rehydration planning", err)
 	}
@@ -264,18 +281,17 @@ func (controller *Controller) RunQueue(ctx context.Context) {
 	}
 }
 
-func (controller *Controller) transitTo(page pages.Scene, policy pages.TransitPolicy) {
-
+func (controller *Controller) transitTo(page pages.Scene, policy pages.TransitPolicy, origin pages.ViewSequenceOrigin) {
 	controller.Enqueue(ControllerReactionEvent{transitOptions: &TransitionOptions{
-		TransitionPage: page,
-		TransitPolicy:  policy,
-		TransitBack:    false,
+		TransitionPage:   page,
+		TransitPolicy:    policy,
+		TransitBack:      false,
+		TransitionOrigin: origin,
 	}})
 
 }
 
 func (controller *Controller) transitBack() {
-
 	controller.Enqueue(ControllerReactionEvent{
 		transitOptions: &TransitionOptions{TransitBack: true},
 	})

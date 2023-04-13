@@ -96,5 +96,5 @@ func (photoResult *SingleMediaResult) CompareTo(result render.IResult, destinati
 		requests = requests[len(requests)-1:]
 	}
 
-	return true, nil
+	return true, requests
 }

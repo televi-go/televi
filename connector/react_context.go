@@ -14,6 +14,7 @@ type reactContextImpl struct {
 	WasTransitRequested    bool
 	AlertRequest           messages.AnswerCallbackRequest
 	includeTransitToAnchor bool
+	origin                 pages.ViewSequenceOrigin
 }
 
 func (reactionContext *reactContextImpl) Contact() *dto.Contact {
@@ -35,7 +36,7 @@ func (reactionContext *reactContextImpl) transitToAnchorModel() {
 		return
 	}
 	for i := 0; i < backTransitionsCount; i++ {
-		reactionContext.TransitBack()
+		reactionContext.controller._transitBack()
 	}
 }
 
@@ -63,7 +64,7 @@ func (reactionContext *reactContextImpl) TransitTo(page pages.Scene, policy page
 	if reactionContext.includeTransitToAnchor {
 		reactionContext.transitToAnchorModel()
 	}
-	reactionContext.controller.transitTo(page, policy)
+	reactionContext.controller.transitTo(page, policy, reactionContext.origin)
 	reactionContext.WasTransitRequested = true
 }
 
