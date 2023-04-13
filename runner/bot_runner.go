@@ -11,6 +11,7 @@ import (
 	"gtihub.com/televi-go/televi/telegram"
 	"gtihub.com/televi-go/televi/telegram/bot"
 	"gtihub.com/televi-go/televi/telegram/dto"
+	"os"
 )
 
 type Runner struct {
@@ -82,6 +83,14 @@ func (runner *Runner) Run(ctx context.Context) {
 }
 
 const DefaultAPiAddress = "https://api.telegram.org"
+
+func EnvOrDefault(env string) string {
+	addressEnv := os.Getenv(env)
+	if addressEnv == "" {
+		addressEnv = DefaultAPiAddress
+	}
+	return addressEnv
+}
 
 func NewRunner(token string, ctor func() pages.Scene, dsn string, address string) (*Runner, error) {
 	scheduler, err := delayed.NewScheduler(dsn)

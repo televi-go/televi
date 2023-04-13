@@ -57,6 +57,8 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	defer db.Close()
+
 	db.Exec(`
 create temporary table categories(name varchar(32) not null primary key);
 insert into categories (name) values('fish'),('bakery'),('drinks');
@@ -81,7 +83,7 @@ create temporary table basket(uid int not null, dish varchar(48) not null, prima
 
 	app, err := runner.NewRunner(os.Getenv("Token"), func() pages.Scene {
 		return RootScene{db: db}
-	}, "root:@/televi?parseTime=true", runner.DefaultAPiAddress)
+	}, "root:@/televi?parseTime=true", runner.EnvOrDefault("Address"))
 	if err != nil {
 		log.Fatalln(err)
 	}
