@@ -1,6 +1,9 @@
 package pages
 
-import "io"
+import (
+	"github.com/televi-go/televi/telegram/dto"
+	"io"
+)
 
 type TextPartBuilder interface {
 	Text(value string) IFormatter
@@ -12,12 +15,30 @@ type PageBuildContext interface {
 	TextElement(buildAction func(component TextContext))
 	ActiveElement(buildAction func(component ActiveTextContext))
 	PhotoElement(buildAction func(component PhotoContext))
+	AnimationElement(buildAction func(component AnimationContext))
+	ActiveAnimationElement(buildAction func(component ActiveAnimationContext))
 	ActivePhoto(buildAction func(component ActivePhotoContext))
 	GetUserId() int
+	GetUserInfo() *dto.User
+	GetNavigator() Navigator
 }
 
 type PhotoConsumer interface {
 	Image(key string, source io.Reader) ImageOptionsSetter
+}
+
+type AnimationConsumer interface {
+	Animation(key string, source io.Reader, filename string)
+}
+
+type AnimationContext interface {
+	TextContext
+	AnimationConsumer
+}
+
+type ActiveAnimationContext interface {
+	ActiveTextContext
+	AnimationConsumer
 }
 
 type PhotoContext interface {
@@ -42,7 +63,7 @@ type ImageOptionsSetter interface {
 type ReplyKeyboardBuilder ReplyBuilder[ReplyRowBuilder]
 type InlineKeyboardBuilder ReplyBuilder[InlineRowBuilder]
 
-type ReplyBuilder[T RowBuilder] interface {
+type ReplyBuilder[T any] interface {
 	ButtonsRow(builder func(rowBuilder T))
 }
 
@@ -50,8 +71,12 @@ type RowBuilder interface {
 	ActionButton(caption string, callback ClickCallback)
 }
 
+type MessageOriginatedRowBuilder interface {
+	ActionButton(caption string, callback ClickCallback)
+}
+
 type ReplyRowBuilder interface {
-	RowBuilder
+	MessageOriginatedRowBuilder
 	ContactButton(caption string, callback ContactCallback)
 }
 

@@ -10,6 +10,14 @@ type Scene interface {
 	View(ctx PageBuildContext)
 }
 
+type SceneWithInit interface {
+	Init()
+}
+
+type View interface {
+	Build(ctx PageBuildContext)
+}
+
 type State[T any] struct {
 	state             *T
 	innerChangeHandle chan<- struct{}
@@ -79,6 +87,7 @@ func getPointerToInterfaceValue(v any) unsafe.Pointer {
 }
 
 func MountStates(v *Scene, handleChan chan<- struct{}) {
+
 	rv := reflect.ValueOf(v).Elem()
 	if rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Interface {
 		rv = rv.Elem()
@@ -99,5 +108,16 @@ func MountStates(v *Scene, handleChan chan<- struct{}) {
 			continue
 		}
 		mountable.mount(handleChan, unsafe.Add(ptrToVal, rt.Field(i).Offset))
+	}
+	sceneWithInit, isSceneWithInit := (*v).(SceneWithInit)
+	if isSceneWithInit {
+		go func() {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					fmt.Println("Recovered", recovered)
+				}
+			}()
+			sceneWithInit.Init()
+		}()
 	}
 }

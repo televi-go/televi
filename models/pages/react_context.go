@@ -1,11 +1,20 @@
 package pages
 
 import (
-	"gtihub.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/telegram/dto"
 )
 
 type TransitPolicy struct {
 	KeepPrevious bool
+}
+
+type Navigator interface {
+	Push(page Scene)
+	Extend(page Scene)
+	Replace(page Scene)
+	Pop()
+	PopAll()
+	Alert(func(alertBuilder TextPartBuilder))
 }
 
 func (policy TransitPolicy) GetKind() TransitionKind {

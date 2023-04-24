@@ -1,14 +1,16 @@
 package pages
 
+import "github.com/televi-go/televi/telegram/dto"
+
 type EventData struct {
 	Kind    string
 	Payload string
 }
 
-type ClickCallback = func(ctx ReactionContext)
-type MessageCallback = func(ctx MessageReactionContext)
-type ExternalCallback = func(ctx ExternalReactionContext)
-type ContactCallback = func(ctx ContactReactionContext)
+type ClickCallback = func()
+type MessageCallback = func(message *dto.Message)
+type ExternalCallback = func(data any)
+type ContactCallback = func(contact *dto.Contact)
 
 type Callbacks struct {
 	Buttons   map[EventData][]ClickCallback
@@ -31,12 +33,12 @@ func (callbacks *Callbacks) AddExternalListener(name string, callback ExternalCa
 	callbacks.External[name] = append(callbacks.External[name], callback)
 }
 
-func (callbacks *Callbacks) InvokeOnMessage(ctx MessageReactionContext) bool {
+func (callbacks *Callbacks) InvokeOnMessage(message *dto.Message) bool {
 	if len(callbacks.OnMessage) == 0 {
 		return false
 	}
 	for _, callback := range callbacks.OnMessage {
-		callback(ctx)
+		callback(message)
 	}
 	return true
 }
@@ -65,14 +67,14 @@ func (callbacks *Callbacks) AddMessageListener(callback MessageCallback) {
 }
 
 // InvokeButton returns if any callbacks were triggered
-func (callbacks *Callbacks) InvokeButton(data EventData, ctx ReactionContext) bool {
+func (callbacks *Callbacks) InvokeButton(data EventData) bool {
 	listeners := callbacks.Buttons[data]
 	if len(listeners) == 0 {
 		return false
 	}
 
 	for _, listener := range listeners {
-		listener(ctx)
+		listener()
 	}
 
 	return true

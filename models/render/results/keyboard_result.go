@@ -1,6 +1,6 @@
 package results
 
-import "gtihub.com/televi-go/televi/telegram/messages/keyboards"
+import "github.com/televi-go/televi/telegram/messages/keyboards"
 
 type KeyboardResult interface {
 	Kind() string

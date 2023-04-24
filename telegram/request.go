@@ -8,9 +8,11 @@ type Request interface {
 }
 
 type File struct {
-	FieldName string
-	Reader    io.Reader
-	FileId    string
+	FieldName   string
+	ContentType string
+	Reader      io.Reader
+	FileId      string
+	Name        string
 }
 
 type RequestWithFiles interface {

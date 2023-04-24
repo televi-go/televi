@@ -1,9 +1,12 @@
 package messages
 
 import (
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
+	"bytes"
+	"fmt"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/messages/keyboards"
 	"io"
+	"strings"
 )
 
 type MediaMessageBase struct {
@@ -29,30 +32,62 @@ func (mediaMessageBase MediaMessageBase) WriteParameter(params telegram.Params) 
 	return err
 }
 
-type SendPhotoRequest struct {
+type SingleMediaRequest struct {
 	Base        MediaMessageBase
-	Photo       io.Reader
+	Content     []byte
+	FileName    string
 	PhotoFileId string
 	HasSpoiler  bool
+	MediaType   string
 }
 
-func (sendPhotoRequest SendPhotoRequest) Method() string {
-	return "sendPhoto"
+func (sendPhotoRequest SingleMediaRequest) Method() string {
+	return fmt.Sprintf("send%s", sendPhotoRequest.MediaType)
 }
 
-func (sendPhotoRequest SendPhotoRequest) Params() (telegram.Params, error) {
+func (sendPhotoRequest SingleMediaRequest) Params() (telegram.Params, error) {
 	params := make(telegram.Params)
 	params.WriteBool("has_spoiler", sendPhotoRequest.HasSpoiler)
 	err := sendPhotoRequest.Base.WriteParameter(params)
 	return params, err
 }
 
-func (sendPhotoRequest SendPhotoRequest) Files() []telegram.File {
+func ToSnake(camel string) (snake string) {
+	var b strings.Builder
+	diff := 'a' - 'A'
+	l := len(camel)
+	for i, v := range camel {
+		// A is 65, a is 97
+		if v >= 'a' {
+			b.WriteRune(v)
+			continue
+		}
+		// v is capital letter here
+		// irregard first letter
+		// add underscore if last letter is capital letter
+		// add underscore when previous letter is lowercase
+		// add underscore when next letter is lowercase
+		if (i != 0 || i == l-1) && (          // head and tail
+		(i > 0 && rune(camel[i-1]) >= 'a') || // pre
+			(i < l-1 && rune(camel[i+1]) >= 'a')) { //next
+			b.WriteRune('_')
+		}
+		b.WriteRune(v + diff)
+	}
+	return b.String()
+}
+
+func (sendPhotoRequest SingleMediaRequest) Files() []telegram.File {
+	var reader io.Reader
+	if sendPhotoRequest.Content != nil {
+		reader = bytes.NewReader(sendPhotoRequest.Content)
+	}
 	return []telegram.File{
 		{
-			FieldName: "photo",
-			Reader:    sendPhotoRequest.Photo,
+			FieldName: ToSnake(sendPhotoRequest.MediaType),
+			Reader:    reader,
 			FileId:    sendPhotoRequest.PhotoFileId,
+			Name:      sendPhotoRequest.FileName,
 		},
 	}
 }

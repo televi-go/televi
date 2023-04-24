@@ -1,7 +1,7 @@
 package telegram
 
 import (
-	"gtihub.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/telegram/dto"
 	"strconv"
 )
 

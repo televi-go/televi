@@ -2,65 +2,76 @@ package connector
 
 import (
 	"fmt"
-	"gtihub.com/televi-go/televi/models/pages"
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/models/render/results"
-	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
+	"github.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/models/render"
+	"github.com/televi-go/televi/models/render/results"
+	"github.com/televi-go/televi/telegram/messages/keyboards"
 	"io"
 )
 
-type photoElementContext struct {
+type singleMediaContext struct {
 	textElementContext
-	PhotoProvider
+	SingleMediaProvider
 }
 
-type PhotoProvider struct {
-	photoReader io.Reader
-	photoFileId string
-	key         string
-	hasSpoiler  bool
+type SingleMediaProvider struct {
+	reader     io.Reader
+	fileId     string
+	MediaType  string
+	key        string
+	hasSpoiler bool
+	filename   string
 }
 
-func (elementContext *PhotoProvider) Spoiler() pages.ImageOptionsSetter {
-	elementContext.hasSpoiler = true
-	return elementContext
+func (provider *SingleMediaProvider) singleMedia(key string, source io.Reader, filename string) {
+	provider.key = key
+	provider.reader = source
+	provider.filename = filename
 }
 
-func (elementContext *PhotoProvider) Image(key string, source io.Reader) pages.ImageOptionsSetter {
-	elementContext.key = key
-	elementContext.photoReader = source
-	return elementContext
+func (provider *SingleMediaProvider) Animation(key string, source io.Reader, filename string) {
+	provider.singleMedia(key, source, filename)
 }
 
-func (elementContext *photoElementContext) BuildResult() (render.IResult, error) {
+func (provider *SingleMediaProvider) Spoiler() pages.ImageOptionsSetter {
+	provider.hasSpoiler = true
+	return provider
+}
 
-	var buttons [][]keyboards.InlineKeyboardButton
-	if elementContext.keyboardBuilder != nil && elementContext.keyboardBuilder.Elements != nil {
-		buttons = elementContext.keyboardBuilder.Elements
-	}
+func (provider *SingleMediaProvider) Image(key string, source io.Reader) pages.ImageOptionsSetter {
+	provider.singleMedia(key, source, "")
+	return provider
+}
 
+func (elementContext *singleMediaContext) buildSingleMediaInternal() (*results.SingleMediaResult, error) {
 	var err error
 
-	if elementContext.photoReader == nil && elementContext.photoFileId == "" {
-		err = fmt.Errorf("no image specified")
-	}
+	kbResult, _ := elementContext.keyboardBuilder.BuildKeyboard()
 
+	if elementContext.reader == nil && elementContext.fileId == "" {
+		return nil, err
+	}
 	return &results.SingleMediaResult{
 		Text:           elementContext.ToString(),
 		ProtectContent: elementContext.protectContent,
 		Silent:         elementContext.produceSilent,
 		Key:            elementContext.key,
-		FileId:         elementContext.photoFileId,
-		FileReader:     elementContext.photoReader,
-		ReplyMarkup:    &results.InlineKeyboardResult{Keyboard: buttons},
-		Type:           "photo",
+		FileId:         elementContext.fileId,
+		FileReader:     elementContext.reader,
+		ReplyMarkup:    kbResult,
+		Type:           elementContext.MediaType,
 		HasSpoiler:     elementContext.hasSpoiler,
-	}, err
+		FileName:       elementContext.filename,
+	}, nil
+}
+
+func (elementContext *singleMediaContext) BuildResult() (render.IResult, error) {
+	return elementContext.buildSingleMediaInternal()
 }
 
 type activePhotoContext struct {
 	activeElementContext
-	PhotoProvider
+	SingleMediaProvider
 }
 
 func (context *activePhotoContext) BuildResult() (render.IResult, error) {
@@ -71,7 +82,7 @@ func (context *activePhotoContext) BuildResult() (render.IResult, error) {
 
 	var err error
 
-	if context.photoReader == nil && context.photoFileId == "" {
+	if context.reader == nil && context.fileId == "" {
 		err = fmt.Errorf("no image specified")
 	}
 
@@ -80,10 +91,11 @@ func (context *activePhotoContext) BuildResult() (render.IResult, error) {
 		ProtectContent: context.protectContent,
 		Silent:         context.produceSilent,
 		Key:            context.key,
-		FileId:         context.photoFileId,
-		FileReader:     context.photoReader,
+		FileId:         context.fileId,
+		FileReader:     context.reader,
 		ReplyMarkup:    &results.ReplyKeyboardResult{Buttons: buttons},
-		Type:           "photo",
+		Type:           context.MediaType,
 		HasSpoiler:     context.hasSpoiler,
+		FileName:       context.filename,
 	}, err
 }

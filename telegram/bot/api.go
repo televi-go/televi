@@ -5,16 +5,26 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"gtihub.com/televi-go/televi/telegram"
+	"github.com/gabriel-vasile/mimetype"
+	"github.com/televi-go/televi/telegram"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"runtime"
 )
 
 type Api struct {
 	Token   string
 	client  http.Client
 	Address string
+}
+
+func (api *Api) LogError(err error, request telegram.Request) {
+	var buf = make([]byte, 2048)
+	runtime.Stack(buf, true)
+	log.Printf("error with request %#v: %v\n%s\n", request, err, buf)
 }
 
 func buildParams(in telegram.Params, files []telegram.File) (*bytes.Buffer, string) {
@@ -35,11 +45,18 @@ func buildParams(in telegram.Params, files []telegram.File) (*bytes.Buffer, stri
 			continue
 		}
 
-		fileWriter, err := w.CreateFormFile(file.FieldName, "")
+		fileBytes, err := io.ReadAll(file.Reader)
 		if err != nil {
 			panic(err)
 		}
-		_, err = io.Copy(fileWriter, file.Reader)
+		mimeType := mimetype.Detect(fileBytes)
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Disposition",
+			fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+				file.FieldName, file.Name))
+		header.Set("Content-Type", mimeType.String())
+		part, err := w.CreatePart(header)
+		_, err = io.Copy(part, bytes.NewReader(fileBytes))
 		if err != nil {
 			panic(err)
 		}
@@ -101,6 +118,17 @@ func (api *Api) RequestContext(request telegram.Request, ctx context.Context) (t
 
 func (api *Api) Request(request telegram.Request) (telegram.Response, error) {
 	return api.RequestContext(request, context.Background())
+}
+
+func (api *Api) LaunchRequest(request telegram.Request) {
+	go func() {
+		_, err := api.Request(request)
+		if err != nil {
+			var buf = make([]byte, 1024)
+			runtime.Stack(buf, false)
+			log.Printf("error with request %#v %v\n%s\n", request, err, buf)
+		}
+	}()
 }
 
 func NewApi(token string, address string) *Api {

@@ -1,8 +1,8 @@
 package pages
 
 import (
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/telegram/bot"
+	"github.com/televi-go/televi/models"
+	"github.com/televi-go/televi/telegram/bot"
 )
 
 type TransitionKind int
@@ -13,19 +13,20 @@ const (
 )
 
 type Model struct {
-	Page      Scene
-	Result    *render.ResultLine
-	Previous  *Model
-	Callbacks Callbacks
-	Kind      TransitionKind
-	Origin    ViewSequenceOrigin
+	Page            Scene
+	Result          *models.ResultLine
+	Previous        *Model
+	Callbacks       Callbacks
+	Kind            TransitionKind
+	Origin          ViewSequenceOrigin
+	BoundRespondIds []int
 }
 
 type ViewSequenceNode struct {
 	View      Scene
 	Previous  *ViewSequenceNode
 	Callbacks Callbacks
-	Result    *render.ResultLine
+	Result    *models.ResultLine
 }
 
 type ViewSequence struct {

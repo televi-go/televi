@@ -1,11 +1,11 @@
 package results
 
 import (
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/messages"
-	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
-	"gtihub.com/televi-go/televi/util"
+	"github.com/televi-go/televi/models/render"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/messages"
+	"github.com/televi-go/televi/telegram/messages/keyboards"
+	"github.com/televi-go/televi/util"
 )
 
 type TextMessageResult struct {

@@ -2,8 +2,8 @@ package main
 
 import (
 	"database/sql"
-	"gtihub.com/televi-go/televi"
-	"gtihub.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi"
+	"github.com/televi-go/televi/models/pages"
 )
 
 type BasketScene struct {
@@ -17,8 +17,8 @@ func (basketScene BasketScene) View(ctx televi.BuildContext) {
 		if err != nil {
 			component.Text("Error encountered")
 			component.ButtonsRow(func(rowBuilder pages.InlineRowBuilder) {
-				rowBuilder.ActionButton("Go back", func(ctx pages.ReactionContext) {
-					ctx.TransitBack()
+				rowBuilder.ActionButton("Go back", func() {
+					ctx.GetNavigator().Pop()
 				})
 			})
 			return
@@ -28,23 +28,24 @@ func (basketScene BasketScene) View(ctx televi.BuildContext) {
 			component.TextF("%s\n", dish)
 		}
 		component.ButtonsRow(func(rowBuilder pages.InlineRowBuilder) {
-			rowBuilder.ActionButton("Checkout", func(reactCtx pages.ReactionContext) {
+			rowBuilder.ActionButton("Checkout", func() {
 				basketScene.service.clear(ctx.GetUserId())
-				reactCtx.ShowAlert(func(builder pages.TextPartBuilder) {
+				ctx.GetNavigator().Alert(func(builder pages.TextPartBuilder) {
 					builder.TextLine("Your purchase list:\n")
 					for dish, _ := range items {
 						builder.TextF("%s\n", dish)
 					}
 					builder.TextLine("Enjoy your meal!")
 				})
-				reactCtx.TransitToMain()
+				ctx.GetNavigator().PopAll()
 			})
 		})
 	})
 }
 
 type basketService struct {
-	db *sql.DB
+	db       *sql.DB
+	onUpdate func()
 }
 
 func (service basketService) getItems(uid int) (map[string]bool, error) {
@@ -67,10 +68,15 @@ func (service basketService) getItems(uid int) (map[string]bool, error) {
 	return result, nil
 }
 
-func (service basketService) toggleItem(uid int, item string) error {
+func (service basketService) toggleItem(uid int, item string) (err error) {
+	defer func() {
+		if err == nil {
+			service.onUpdate()
+		}
+	}()
 	existRow := service.db.QueryRow("select exists(select *from basket where dish=? and uid=?)", item, uid)
 	var exists bool
-	err := existRow.Scan(&exists)
+	err = existRow.Scan(&exists)
 	if err != nil {
 		return err
 	}

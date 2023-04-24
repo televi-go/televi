@@ -1,8 +1,8 @@
 package messages
 
 import (
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/messages/keyboards"
 )
 
 type TextMessageRequest struct {

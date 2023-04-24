@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	_ "github.com/go-sql-driver/mysql"
-	"gtihub.com/televi-go/televi/util"
+	"github.com/televi-go/televi/util"
 	"log"
 	"sync"
 	"time"

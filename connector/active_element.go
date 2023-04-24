@@ -1,15 +1,15 @@
 package connector
 
 import (
-	"gtihub.com/televi-go/televi/connector/abstractions"
-	"gtihub.com/televi-go/televi/models/pages"
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/models/render/results"
-	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
+	abstractions2 "github.com/televi-go/televi/abstractions"
+	"github.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/models/render"
+	"github.com/televi-go/televi/models/render/results"
+	"github.com/televi-go/televi/telegram/messages/keyboards"
 )
 
 type activeElementContext struct {
-	abstractions.TextHtmlBuilder
+	abstractions2.TextHtmlBuilder
 	keyboardBuilder *replyKbBuilder
 	produceSilent   bool
 	protectContent  bool
@@ -34,7 +34,7 @@ func (activeElementContext *activeElementContext) BuildResult() (render.IResult,
 func (activeElementContext *activeElementContext) ReplyKeyboard(buildAction func(builder pages.ReplyKeyboardBuilder)) {
 	activeElementContext.keyboardBuilder = &replyKbBuilder{
 		Callbacks:           activeElementContext.Callbacks,
-		TwoDimensionBuilder: &abstractions.TwoDimensionBuilder[keyboards.ReplyKeyboardButton]{},
+		TwoDimensionBuilder: &abstractions2.TwoDimensionBuilder[keyboards.ReplyKeyboardButton]{},
 	}
 	buildAction(activeElementContext.keyboardBuilder)
 }

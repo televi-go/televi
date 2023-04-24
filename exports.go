@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"gtihub.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/models/pages"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -16,19 +17,32 @@ type Scene interface {
 type BuildContext = pages.PageBuildContext
 type TransitPolicy = pages.TransitPolicy
 
-func ForEach[T any](data []T, runner func(element T)) {
+func ForEach[T any](context BuildContext, data []T, runner func(element T) pages.View) {
 	for _, datum := range data {
-		runner(datum)
+		runner(datum).Build(context)
 	}
+}
+
+func Range(start, end int) []int {
+	result := make([]int, end-start)
+	for i := start; i < end; i++ {
+		result[i-start] = i
+	}
+	return result
 }
 
 type ImageAsset interface {
 	Embed(c pages.PhotoConsumer) pages.ImageOptionsSetter
+	EmbedAnimation(c pages.AnimationConsumer)
 }
 
 type imageAsset struct {
 	preloadedBytes []byte
 	path           string
+}
+
+func (imageAsset imageAsset) EmbedAnimation(c pages.AnimationConsumer) {
+	c.Animation(imageAsset.path, bytes.NewReader(imageAsset.preloadedBytes), filepath.Base(imageAsset.path))
 }
 
 func (imageAsset imageAsset) Embed(c pages.PhotoConsumer) pages.ImageOptionsSetter {
@@ -71,6 +85,7 @@ func (imageAssetGroupLoader *imageAssetGroupLoader) Load() error {
 
 			if imgAsset, isImgAsset := (*task.asset).(imageAsset); isImgAsset {
 				if len(imgAsset.preloadedBytes) != 0 {
+					errorChannel <- nil
 					return
 				}
 			}

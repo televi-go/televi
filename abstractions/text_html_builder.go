@@ -2,47 +2,67 @@ package abstractions
 
 import (
 	"fmt"
-	"gtihub.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/models/pages"
 	"strings"
 )
+
+type Buildable interface {
+	WriteTo(builder *strings.Builder)
+}
+
+type wrapper struct {
+	Buildable
+}
+
+func (w wrapper) writeTo(builder *strings.Builder) {
+	w.WriteTo(builder)
+}
 
 type TextHtmlBuilder struct {
 	buildTasks []*FormatOptions
 }
 
+func (builder *TextHtmlBuilder) AddBuildable(buildable Buildable) {
+	builder.buildTasks = append(builder.buildTasks, &FormatOptions{
+		source:       wrapper{buildable},
+		envelopOpen:  "",
+		envelopClose: "",
+	})
+}
+
 func (builder *TextHtmlBuilder) TextF(value string, args ...any) pages.IFormatter {
-	formatter := &FormatOptions{source: fmt.Sprintf(value, args...)}
+	formatter := &FormatOptions{source: StrFormatWriteable(fmt.Sprintf(value, args...))}
 	builder.buildTasks = append(builder.buildTasks, formatter)
 	return formatter
 }
 
+type FormatWritable interface {
+	writeTo(builder *strings.Builder)
+}
+
+type StrFormatWriteable string
+
+func (s StrFormatWriteable) writeTo(builder *strings.Builder) {
+	builder.WriteString(string(s))
+}
+
 type FormatOptions struct {
-	source       string
+	source       FormatWritable
 	envelopOpen  string
 	envelopClose string
 }
 
-func (builder *TextHtmlBuilder) length() int {
-	acc := 0
-	for _, task := range builder.buildTasks {
-		acc += task.length()
-	}
-	return acc
-}
-
-func (formatOptions *FormatOptions) length() int {
-	return len(formatOptions.source) + len(formatOptions.envelopClose) + len(formatOptions.envelopClose)
-}
-
 func (formatOptions *FormatOptions) writeTo(builder *strings.Builder) {
 	builder.WriteString(formatOptions.envelopOpen)
-	builder.WriteString(formatOptions.source)
+	formatOptions.source.writeTo(builder)
 	builder.WriteString(formatOptions.envelopClose)
 }
 
 func (formatOptions *FormatOptions) envelopIn(open, close string) {
-	formatOptions.envelopOpen = open + formatOptions.envelopOpen
-	formatOptions.envelopClose += close
+	nodeCopy := *formatOptions
+	formatOptions.envelopOpen = open
+	formatOptions.envelopClose = close
+	formatOptions.source = &nodeCopy
 }
 
 func (formatOptions *FormatOptions) Bold() pages.IFormatter {
@@ -61,22 +81,34 @@ func (formatOptions *FormatOptions) Spoiler() pages.IFormatter {
 }
 
 func (builder *TextHtmlBuilder) Text(value string) pages.IFormatter {
-	formatter := &FormatOptions{source: value}
+	formatter := &FormatOptions{source: StrFormatWriteable(value)}
 	builder.buildTasks = append(builder.buildTasks, formatter)
 	return formatter
 }
 
 func (builder *TextHtmlBuilder) TextLine(value string) pages.IFormatter {
-	formatter := &FormatOptions{source: value + "\n"}
+	formatter := &FormatOptions{source: StrFormatWriteable(value + "\n")}
 	builder.buildTasks = append(builder.buildTasks, formatter)
 	return formatter
 }
 
 func (builder *TextHtmlBuilder) ToString() string {
 	tBuilder := strings.Builder{}
-	tBuilder.Grow(builder.length())
 	for _, task := range builder.buildTasks {
 		task.writeTo(&tBuilder)
 	}
 	return tBuilder.String()
+}
+
+type TextBuilder interface {
+	Text(value string) IFormatter
+	TextF(value string, args ...any) IFormatter
+	TextLine(value string) IFormatter
+}
+
+type IFormatter interface {
+	Bold() IFormatter
+	Mono() IFormatter
+	Spoiler() IFormatter
+	//TODO: to be added
 }

@@ -1,6 +1,9 @@
 package results
 
-import "gtihub.com/televi-go/televi/telegram/messages/keyboards"
+import (
+	"github.com/televi-go/televi/telegram/messages/keyboards"
+	"github.com/televi-go/televi/util"
+)
 
 type ReplyKeyboardResult struct {
 	Buttons [][]keyboards.ReplyKeyboardButton
@@ -11,8 +14,8 @@ func (replyKeyboardResult ReplyKeyboardResult) Kind() string {
 }
 
 func (replyKeyboardResult ReplyKeyboardResult) CanBeUpdated(kbResult KeyboardResult) UpdateAction {
-	formerResult, isReplyKeyboardResult := kbResult.(ReplyKeyboardResult)
-	if !isReplyKeyboardResult {
+	formerResult, notPointerErr := util.PointerOr[ReplyKeyboardResult](kbResult)
+	if notPointerErr != nil {
 		return ReplaceAction
 	}
 

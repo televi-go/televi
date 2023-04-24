@@ -3,39 +3,46 @@ package connector
 import (
 	"context"
 	"fmt"
-	"gtihub.com/televi-go/televi/delayed"
-	"gtihub.com/televi-go/televi/models"
-	"gtihub.com/televi-go/televi/models/pages"
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/bot"
-	"gtihub.com/televi-go/televi/telegram/dto"
-	"gtihub.com/televi-go/televi/telegram/messages"
+	"github.com/televi-go/televi/delayed"
+	"github.com/televi-go/televi/models"
+	"github.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/bot"
+	"github.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/telegram/messages"
+	"github.com/televi-go/televi/util"
 	"log"
 
 	"time"
 )
 
+type NavigationProvider interface {
+	EnqueueTransit(options TransitionOptions)
+	dispatchAlert(show bool, text string)
+}
+
 type Controller struct {
 	ChatId                 telegram.Destination
 	CurrentModel           *pages.Model
 	Api                    *bot.Api
+	UserInfo               *dto.User
 	EventChannel           chan ControllerReactionEvent
 	Scheduler              *delayed.TaskScheduler
 	LatestRender           time.Time
 	StateUpdateChannel     chan struct{}
-	ActiveCallbacks        pages.Callbacks
 	isCurrentlyRehydrating bool
-	ActiveCallbacksModel   *pages.Model
+	ReplyCallbacks         *pages.Callbacks
+	LastMessage            *dto.Message
+	LastQuery              *dto.CallbackQuery
 }
 
 type TransitionOptions struct {
-	TransitionPage   pages.Scene
-	TransitPolicy    pages.TransitPolicy
-	TransitBack      bool
-	TransitionOrigin pages.ViewSequenceOrigin
-	TransitToMain    bool
-	OnPerformed      chan bool
+	From        *pages.Model
+	To          pages.Scene
+	IsExtending bool
+	IsBack      bool
+	IsToMain    bool
+	IsReplace   bool
 }
 
 type ControllerReactionEvent struct {
@@ -63,46 +70,52 @@ func (origin MessageTransitionOrigin) Remove(api *bot.Api) {
 const rehydrateDelta = time.Hour * 47
 
 func (controller *Controller) dispatchMessage(message *dto.Message) bool {
-	reactCtx := &reactContextImpl{
-		controller:             controller,
-		message:                message,
-		includeTransitToAnchor: controller.ActiveCallbacksModel != controller.CurrentModel,
-		origin: MessageTransitionOrigin{
-			destination: controller.ChatId,
-			messageId:   message.MessageID,
-		},
+	defer func() {
+		if controller.LastMessage != nil {
+			controller.CurrentModel.BoundRespondIds = append(controller.CurrentModel.BoundRespondIds, controller.LastMessage.MessageID)
+		}
+	}()
+	controller.UserInfo = message.From
+	controller.LastMessage = message
+
+	canConsumeWithKeyboard := controller.ReplyCallbacks.InvokeOnMessage(message)
+	canConsumeElse := controller.CurrentModel.Callbacks.InvokeOnMessage(message)
+	return canConsumeWithKeyboard || canConsumeElse
+}
+
+func (controller *Controller) dispatchAlert(showAlert bool, text string) {
+	if controller.LastQuery != nil {
+		query := controller.LastQuery
+		controller.LastQuery = nil
+		request := messages.AnswerCallbackRequest{
+			Id:        query.ID,
+			Text:      text,
+			ShowAlert: showAlert,
+		}
+		go func() {
+			resp, err := controller.Api.Request(request)
+			if err != nil {
+				fmt.Println(resp, err)
+			}
+		}()
 	}
-	hasCallbacks := controller.ActiveCallbacks.InvokeButton(pages.EventData{
-		Kind: "message-reply", Payload: message.Text}, reactCtx)
-	if hasCallbacks {
-		return true
-	}
-	return controller.CurrentModel.Callbacks.InvokeOnMessage(reactCtx)
 }
 
 func (controller *Controller) dispatchCallback(callback *dto.CallbackQuery) bool {
-	reactCtx := &reactContextImpl{
-		controller: controller,
-		message:    nil,
-		AlertRequest: messages.AnswerCallbackRequest{
-			Id:        callback.ID,
-			Text:      "",
-			ShowAlert: false,
-		},
-	}
+	controller.UserInfo = callback.From
 	hasCalled := controller.CurrentModel.Callbacks.InvokeButton(pages.EventData{
 		Kind:    "",
 		Payload: callback.Data,
-	}, reactCtx)
+	})
 
-	go func() {
-		resp, err := controller.Api.Request(reactCtx.AlertRequest)
+	/* go func() {
+		resp, err := controller.Api.Request(AlertRequest)
 		if err != nil {
 			fmt.Println(resp, err)
 		}
-	}()
-
-	return hasCalled && !reactCtx.WasTransitRequested
+	}() */
+	controller.dispatchAlert(false, "")
+	return hasCalled
 }
 
 func (controller *Controller) dispatchExternal(event *models.ExternalEvent) bool {
@@ -110,30 +123,29 @@ func (controller *Controller) dispatchExternal(event *models.ExternalEvent) bool
 }
 
 func (controller *Controller) dispatchEvent(event ControllerReactionEvent) {
-	hasChanged := controller.processEvent(event)
+	controller.processEvent(event)
 
 	if event.IsRehydrate {
 		controller.render(true)
 		return
 	}
-
-	if !hasChanged && !event.InnerStateChanged {
-		return
-	}
 }
 
-func (controller *Controller) _transitBack() bool {
+func (controller *Controller) _transitBack(remove bool) bool {
 	if controller.CurrentModel.Previous == nil {
 		return false
 	}
-	if controller.CurrentModel.Origin != nil {
+	if controller.CurrentModel.Origin != nil && remove {
 		controller.CurrentModel.Origin.Remove(controller.Api)
 	}
-	if controller.CurrentModel.Kind == pages.SeparativeTransition {
+	if controller.CurrentModel.Kind == pages.SeparativeTransition && remove {
 		for _, completedResult := range controller.CurrentModel.Result.Line {
 			for _, cleanupRequest := range completedResult.Cleanup(controller.ChatId) {
 				go controller.Api.Request(cleanupRequest)
 			}
+		}
+		for _, id := range controller.CurrentModel.BoundRespondIds {
+			go controller.Api.Request(messages.DeleteMessageRequest{MessageId: id, Destination: controller.ChatId})
 		}
 	}
 
@@ -142,41 +154,78 @@ func (controller *Controller) _transitBack() bool {
 }
 
 func (controller *Controller) dispatchTransition(options TransitionOptions) (result bool) {
-
 	defer func() {
-		fmt.Printf("transited to %T\n", controller.CurrentModel.Page)
-		controller.StateUpdateChannel <- struct{}{}
+		if result {
+			controller.StateUpdateChannel <- struct{}{}
+		}
 	}()
-	if options.TransitionPage != nil {
-
-		resultLine := &render.ResultLine{}
-		pages.MountStates(&options.TransitionPage, controller.StateUpdateChannel)
-		if options.TransitPolicy.KeepPrevious {
-			resultLine = controller.CurrentModel.Result
+	if options.IsToMain {
+		hasTransited := false
+		for controller.CurrentModel.Previous != nil {
+			hasTransited = controller._transitBack(!options.IsReplace)
 		}
-
-		controller.CurrentModel = &pages.Model{
-			Page:      options.TransitionPage,
-			Result:    resultLine,
-			Origin:    options.TransitionOrigin,
-			Previous:  controller.CurrentModel,
-			Callbacks: *pages.NewCallbacks(),
-			Kind:      options.TransitPolicy.GetKind(),
-		}
-		return true
+		return hasTransited
 	}
 
-	if options.TransitBack {
-		return controller._transitBack()
-	}
-
-	if options.TransitToMain {
-		for controller._transitBack() {
+	if options.IsBack {
+		for controller.CurrentModel != options.From && controller.CurrentModel.Previous != nil {
+			controller._transitBack(!options.IsReplace)
 		}
-		return true
+
+		return controller._transitBack(!options.IsReplace)
 	}
 
-	return false
+	var origin pages.ViewSequenceOrigin
+
+	if controller.LastMessage != nil {
+		origin = MessageTransitionOrigin{
+			destination: controller.ChatId,
+			messageId:   controller.LastMessage.MessageID,
+		}
+		controller.LastMessage = nil
+	}
+
+	controller.transit(options.From, options.To, options.IsExtending, origin, options.IsReplace)
+
+	return true
+}
+
+func (controller *Controller) EnqueueTransit(options TransitionOptions) {
+	controller.Enqueue(ControllerReactionEvent{transitOptions: &options})
+}
+
+func (controller *Controller) transit(
+	from *pages.Model,
+	to pages.Scene,
+	isExtending bool,
+	origin pages.ViewSequenceOrigin,
+	isReplacing bool,
+) {
+
+	for controller.CurrentModel != from && controller.CurrentModel.Previous != nil {
+		controller._transitBack(!isReplacing)
+	}
+
+	resultLine := &models.ResultLine{}
+	pages.MountStates(&to, controller.StateUpdateChannel)
+	if !isExtending && !isReplacing {
+		resultLine = controller.CurrentModel.Result
+	}
+
+	var prev = controller.CurrentModel
+
+	if isReplacing {
+		prev = controller.CurrentModel.Previous
+	}
+
+	controller.CurrentModel = &pages.Model{
+		Page:      to,
+		Result:    resultLine,
+		Origin:    origin,
+		Previous:  prev,
+		Callbacks: *pages.NewCallbacks(),
+		Kind:      pages.TransitPolicy{KeepPrevious: !isExtending}.GetKind(),
+	}
 }
 
 func (controller *Controller) processEvent(event ControllerReactionEvent) (hasCalled bool) {
@@ -206,25 +255,33 @@ func (controller *Controller) processEvent(event ControllerReactionEvent) (hasCa
 
 func (controller *Controller) render(silent bool) {
 	fmt.Printf("rendering %T\n", controller.CurrentModel.Page)
+	sw := util.NewStopWatch()
+	defer func() {
+		fmt.Println("Painted in", sw.Elapsed())
+	}()
+
 	if silent {
 		fmt.Println("Rehydration called")
 	}
 
-	chatId, _ := controller.ChatId.(telegram.ChatDestination)
+	//chatId, _ := controller.ChatId.(telegram.ChatDestination)
 
 	pageBuildContext := &BuildContext{
+		UserInfo:        controller.UserInfo,
 		elements:        nil,
 		everySilent:     silent,
 		everyProtected:  false,
 		ActiveCallbacks: pages.NewCallbacks(),
 		Callbacks:       pages.NewCallbacks(),
-		UserId:          chatId.ChatId,
+		controller:      controller,
+		stackPoint:      controller.CurrentModel,
 	}
+
 	controller.CurrentModel.Page.View(pageBuildContext)
 	controller.CurrentModel.Callbacks = *pageBuildContext.Callbacks
+
 	if !pageBuildContext.ActiveCallbacks.IsEmpty() {
-		controller.ActiveCallbacks = *pageBuildContext.ActiveCallbacks
-		controller.ActiveCallbacksModel = controller.CurrentModel
+		controller.ReplyCallbacks = pageBuildContext.ActiveCallbacks
 	}
 
 	newLine := pageBuildContext.buildLine()
@@ -279,28 +336,4 @@ func (controller *Controller) RunQueue(ctx context.Context) {
 			break
 		}
 	}
-}
-
-func (controller *Controller) transitTo(page pages.Scene, policy pages.TransitPolicy, origin pages.ViewSequenceOrigin) {
-	controller.Enqueue(ControllerReactionEvent{transitOptions: &TransitionOptions{
-		TransitionPage:   page,
-		TransitPolicy:    policy,
-		TransitBack:      false,
-		TransitionOrigin: origin,
-	}})
-
-}
-
-func (controller *Controller) transitBack() {
-	controller.Enqueue(ControllerReactionEvent{
-		transitOptions: &TransitionOptions{TransitBack: true},
-	})
-
-}
-
-func (controller *Controller) transitToMain() {
-	controller.Enqueue(ControllerReactionEvent{
-		transitOptions: &TransitionOptions{TransitToMain: true},
-	})
-
 }

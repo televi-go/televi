@@ -1,21 +1,25 @@
-package render
+package models
 
 import (
 	"fmt"
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/bot"
-	"gtihub.com/televi-go/televi/telegram/dto"
-	"gtihub.com/televi-go/televi/util"
+	"github.com/televi-go/televi/models/render"
+	"github.com/televi-go/televi/models/render/results"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/bot"
+	"github.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/util"
 	"sync"
 	"time"
 )
 
 type ResultLine struct {
-	Line []*CompletedResult
+	Line []*render.CompletedResult
+	// stored controller-wide
+	ActiveKbResult *results.ReplyKeyboardResult
 }
 
 type analysisNode struct {
-	CompletedResult *CompletedResult
+	CompletedResult *render.CompletedResult
 	MarkedDelete    bool
 	MarkedInsert    bool
 }
@@ -31,17 +35,17 @@ func (resultLine *ResultLine) getAnalysisNodes() (result []*analysisNode) {
 }
 
 type analysisSections struct {
-	new      []IResult
+	new      []render.IResult
 	orphaned []*analysisNode
 	common   []commonNode
 }
 
 type commonNode struct {
-	NewResult IResult
+	NewResult render.IResult
 	*analysisNode
 }
 
-func buildSections(nodes []*analysisNode, line []IResult) analysisSections {
+func buildSections(nodes []*analysisNode, line []render.IResult) analysisSections {
 	commonLength := util.Min(len(nodes), len(line))
 	sections := analysisSections{
 		common: make([]commonNode, commonLength),
@@ -100,7 +104,7 @@ func compare(destination telegram.Destination, replaceMode bool, node commonNode
 	cr.Consecutive = bind([]telegram.Request{
 		node.NewResult.InitAction(destination),
 	}, &analysisNode{
-		CompletedResult: &CompletedResult{
+		CompletedResult: &render.CompletedResult{
 			MessageIds:   nil,
 			LatestResult: node.NewResult,
 			MountedAt:    time.Now(),
@@ -113,7 +117,7 @@ func compare(destination telegram.Destination, replaceMode bool, node commonNode
 
 func (resultLine *ResultLine) CompareAndProduce(
 	destination telegram.Destination,
-	newLine []IResult,
+	newLine []render.IResult,
 	globalReplaceMode bool,
 ) (result CompareResult) {
 	nodes := resultLine.getAnalysisNodes()
@@ -134,7 +138,7 @@ func (resultLine *ResultLine) CompareAndProduce(
 
 	for _, node := range sections.new {
 		result.Consecutive = append(result.Consecutive, bind([]telegram.Request{node.InitAction(destination)}, &analysisNode{
-			CompletedResult: &CompletedResult{
+			CompletedResult: &render.CompletedResult{
 				MessageIds:   nil,
 				LatestResult: node,
 				MountedAt:    time.Now(),
@@ -149,7 +153,7 @@ func (resultLine *ResultLine) CompareAndProduce(
 
 func (resultLine *ResultLine) Run(result CompareResult, api *bot.Api) error {
 
-	var toDelete []*CompletedResult
+	var toDelete []*render.CompletedResult
 	wg := sync.WaitGroup{}
 	wg.Add(len(result.Parallel))
 	for _, request := range result.Parallel {
@@ -186,7 +190,7 @@ func (resultLine *ResultLine) Run(result CompareResult, api *bot.Api) error {
 		}
 	}
 
-	var newResults []*CompletedResult
+	var newResults []*render.CompletedResult
 
 	for _, completedResult := range resultLine.Line {
 		isToDelete := false

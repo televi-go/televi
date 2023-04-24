@@ -3,8 +3,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"gtihub.com/televi-go/televi"
-	"gtihub.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi"
+	"github.com/televi-go/televi/models/pages"
 )
 
 type CategoriesScene struct {
@@ -37,7 +37,7 @@ func (categoriesScene CategoriesScene) View(ctx televi.BuildContext) {
 			component.Text("Service is unavailable. Try again later")
 			component.InlineKeyboard(func(builder pages.InlineKeyboardBuilder) {
 				builder.ButtonsRow(func(rowBuilder pages.InlineRowBuilder) {
-					rowBuilder.ActionButton("Reload", func(ctx pages.ReactionContext) {
+					rowBuilder.ActionButton("Reload", func() {
 						categoriesScene.ReloadManager.Set(struct{}{})
 					})
 				})
@@ -50,13 +50,13 @@ func (categoriesScene CategoriesScene) View(ctx televi.BuildContext) {
 		for _, category := range categories {
 			category := category
 			component.ButtonsRow(func(rowBuilder pages.InlineRowBuilder) {
-				rowBuilder.ActionButton(category, func(ctx pages.ReactionContext) {
-					ctx.TransitTo(SelectDishScene{
+				rowBuilder.ActionButton(category, func() {
+					ctx.GetNavigator().Push(SelectDishScene{
 						category: category,
-						service: basketService{
+						service: &basketService{
 							db: categoriesScene.db,
 						},
-					}, pages.TransitPolicy{KeepPrevious: true})
+					})
 				})
 			})
 		}

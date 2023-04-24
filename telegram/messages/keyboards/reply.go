@@ -1,6 +1,6 @@
 package keyboards
 
-import "gtihub.com/televi-go/televi/telegram"
+import "github.com/televi-go/televi/telegram"
 
 type ReplyKeyboardButton struct {
 	Text            string `json:"text"`
@@ -22,11 +22,12 @@ func (replyKeyboard ReplyKeyboardMarkup) WriteParameter(params telegram.Params) 
 }
 
 type ReplyKeyboardRemove struct {
+	RemoveKeyboard bool `json:"remove_keyboard"`
 }
 
 func (replyKeyboardRemove ReplyKeyboardRemove) WriteParameter(params telegram.Params) error {
-	params.WriteBool("remove_keyboard", true)
-	return nil
+	replyKeyboardRemove.RemoveKeyboard = true
+	return params.WriteJson("reply_markup", replyKeyboardRemove)
 }
 
 func (replyKeyboardRemove ReplyKeyboardRemove) replyMarkupImpl() {}

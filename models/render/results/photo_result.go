@@ -1,10 +1,10 @@
 package results
 
 import (
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/messages"
-	"gtihub.com/televi-go/televi/telegram/messages/keyboards"
+	"github.com/televi-go/televi/models/render"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/messages"
+	"github.com/televi-go/televi/telegram/messages/keyboards"
 	"io"
 )
 
@@ -14,6 +14,7 @@ type SingleMediaResult struct {
 	Silent         bool
 	Key            string
 	FileId         string
+	FileName       string
 	FileReader     io.Reader
 	ReplyMarkup    KeyboardResult
 	Type           string
@@ -25,7 +26,8 @@ func (photoResult *SingleMediaResult) Kind() string {
 }
 
 func (photoResult *SingleMediaResult) InitAction(destination telegram.Destination) telegram.Request {
-	return messages.SendPhotoRequest{
+	return messages.SingleMediaRequest{
+		MediaType: photoResult.Type,
 		Base: messages.MediaMessageBase{
 			Destination:    destination,
 			Caption:        photoResult.Text,
@@ -34,7 +36,8 @@ func (photoResult *SingleMediaResult) InitAction(destination telegram.Destinatio
 			ReplyTo:        0,
 			ReplyMarkup:    photoResult.ReplyMarkup.ToReplyMarkup(),
 		},
-		Photo:       photoResult.FileReader,
+		FileName:    photoResult.FileName,
+		Content:     nil, //photoResult.FileReader,
 		PhotoFileId: photoResult.FileId,
 		HasSpoiler:  photoResult.HasSpoiler,
 	}

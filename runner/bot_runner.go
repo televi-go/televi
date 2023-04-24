@@ -4,47 +4,53 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gtihub.com/televi-go/televi/connector"
-	"gtihub.com/televi-go/televi/delayed"
-	"gtihub.com/televi-go/televi/models/pages"
-	"gtihub.com/televi-go/televi/models/render"
-	"gtihub.com/televi-go/televi/telegram"
-	"gtihub.com/televi-go/televi/telegram/bot"
-	"gtihub.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/connector"
+	"github.com/televi-go/televi/delayed"
+	"github.com/televi-go/televi/models"
+	"github.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram/bot"
+	"github.com/televi-go/televi/telegram/dto"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Runner struct {
-	controllers     map[string]*connector.Controller
-	primaryPageCtor func() pages.Scene
-	api             *bot.Api
-	ctx             context.Context
-	scheduler       *delayed.TaskScheduler
-	procDestructor  func()
+	controllers         map[string]*connector.Controller
+	controllerAccessMut sync.Mutex
+	primaryPageCtor     func() pages.Scene
+	api                 *bot.Api
+	ctx                 context.Context
+	scheduler           *delayed.TaskScheduler
+	procDestructor      func()
 }
 
 func (runner *Runner) getUpdates() {
 	updateChannel := runner.api.Poll(runner.ctx)
 	for update := range updateChannel {
-		runner.dispatchUpdate(update)
+		runner.DispatchUpdate(update)
 	}
 }
 
-func (runner *Runner) getOrCreateController(destination telegram.Destination) *connector.Controller {
+func (runner *Runner) getOrCreateController(userInfo *dto.User) *connector.Controller {
+	runner.controllerAccessMut.Lock()
+	defer runner.controllerAccessMut.Unlock()
+	destination := telegram.ChatDestination{ChatId: int(userInfo.ID)}
 	controller, hasController := runner.controllers[destination.ToString()]
 	if !hasController {
-		fmt.Println("Creating controller for", destination)
+		//fmt.Println("Creating controller for", destination)
 		stateUpdateChannel := make(chan struct{}, 2)
 		page := runner.primaryPageCtor()
 		pages.MountStates(&page, stateUpdateChannel)
 		controller = &connector.Controller{
-			ChatId:          destination,
-			ActiveCallbacks: *pages.NewCallbacks(),
+			ChatId:         destination,
+			UserInfo:       userInfo,
+			ReplyCallbacks: pages.NewCallbacks(),
 			CurrentModel: &pages.Model{
 				Page: page,
-				Result: &render.ResultLine{
+				Result: &models.ResultLine{
 					Line: nil,
 				},
 				Previous:  nil,
@@ -66,9 +72,8 @@ func (runner *Runner) getOrCreateController(destination telegram.Destination) *c
 	return controller
 }
 
-func (runner *Runner) dispatchUpdate(update dto.Update) {
-	destination := telegram.GetDestination(update)
-	controller := runner.getOrCreateController(destination)
+func (runner *Runner) DispatchUpdate(update dto.Update) {
+	controller := runner.getOrCreateController(update.SentFrom())
 	controller.Enqueue(connector.ControllerReactionEvent{
 		TelegramMessage:   update.Message,
 		TelegramCallback:  update.CallbackQuery,
@@ -108,7 +113,7 @@ func establishPid(token string) (func(), error) {
 	err := os.WriteFile(pidfileName, []byte(pidStr), 0666)
 	return func() {
 		err := os.Remove(pidfileName)
-		fmt.Println("err removing", err)
+		fmt.Println("err removing pidfile", err)
 	}, err
 }
 
@@ -136,10 +141,10 @@ func NewRunner(token string, ctor func() pages.Scene, dsn string, address string
 		procDestructor:  procDestructor,
 	}
 
-	delayed.Register(scheduler, "rehydrate", func(args string) {
+	/*delayed.Register(scheduler, "rehydrate", func(args string) {
 		controller := runner.getOrCreateController(telegram.ParseDestination(args))
 		controller.EnqueueRehydrate()
-	})
+	})*/
 
 	return runner, err
 }

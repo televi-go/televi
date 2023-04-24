@@ -1,7 +1,7 @@
 package messages
 
 import (
-	"gtihub.com/televi-go/televi/telegram"
+	"github.com/televi-go/televi/telegram"
 )
 
 type AnswerCallbackRequest struct {

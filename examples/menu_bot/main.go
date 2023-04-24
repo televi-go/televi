@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
-	"gtihub.com/televi-go/televi"
-	"gtihub.com/televi-go/televi/models/pages"
-	"gtihub.com/televi-go/televi/runner"
+	"github.com/televi-go/televi"
+	"github.com/televi-go/televi/models/pages"
+	"github.com/televi-go/televi/runner"
 	"log"
 	"os"
 	"os/signal"
@@ -21,16 +21,21 @@ type RootScene struct {
 func (rootScene RootScene) View(ctx televi.BuildContext) {
 
 	ctx.ActivePhoto(func(component pages.ActivePhotoContext) {
+		component.TextF("Hi, %s\n", ctx.GetUserInfo().FirstName)
 		component.TextLine("Welcome to our progressive online restaurant")
 		component.TextLine("This is our chef")
 		chefAsset.Embed(component).Spoiler()
 		component.ReplyKeyboard(func(builder pages.ReplyKeyboardBuilder) {
 			builder.ButtonsRow(func(rowBuilder pages.ReplyRowBuilder) {
-				rowBuilder.ActionButton("Menu", func(ctx pages.ReactionContext) {
-					ctx.TransitTo(CategoriesScene{db: rootScene.db}, pages.TransitPolicy{KeepPrevious: false})
+				rowBuilder.ActionButton("Menu", func() {
+					ctx.GetNavigator().Extend(CategoriesScene{db: rootScene.db})
 				})
-				rowBuilder.ActionButton("Basket", func(ctx pages.ReactionContext) {
-					ctx.TransitTo(BasketScene{service: basketService{db: rootScene.db}}, pages.TransitPolicy{KeepPrevious: false})
+				rowBuilder.ActionButton("Basket", func() {
+					ctx.GetNavigator().Extend(BasketScene{
+						service: basketService{
+							db: rootScene.db,
+						},
+					})
 				})
 			})
 		})
