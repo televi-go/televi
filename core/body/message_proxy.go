@@ -47,6 +47,7 @@ func NewStatefulMessageBuilder(
 func (statefulMessageBuilder *StatefulMessageBuilder) RunWith(builder RealMessageBuilder) {
 	builder.SetIsModified(statefulMessageBuilder.StateHasChanged)
 	if statefulMessageBuilder.StateHasChanged {
+
 		statefulMessageBuilder.CachedDescendants = nil
 		proxy := &proxyMessageBuilderImpl{
 			StateUpdateChan: statefulMessageBuilder.StateUpdateChan,

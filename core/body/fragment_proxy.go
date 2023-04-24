@@ -32,6 +32,13 @@ func (statefulFragment *StatefulFragment) RunWith(builder builders.ComponentBuil
 	isCached = !statefulFragment.StateHasChanged
 
 	if statefulFragment.StateHasChanged {
+
+		disposableView, isDisposableView := statefulFragment.view.(builders.DisposableView)
+		if isDisposableView {
+
+			disposableView.Dispose()
+		}
+
 		statefulFragment.Descendants = nil
 		proxy := &FragmentProxyBuilder{
 			UpdateC:   statefulFragment.UpdateC,

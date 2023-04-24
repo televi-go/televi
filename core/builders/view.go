@@ -5,6 +5,11 @@ type View interface {
 	View(builder ComponentBuilder)
 }
 
+type DisposableView interface {
+	View
+	Dispose()
+}
+
 type ComponentBuilder interface {
 	Component(View)
 	Message(builder func(viewBuilder Message))
