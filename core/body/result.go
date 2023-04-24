@@ -2,6 +2,7 @@ package body
 
 import (
 	"bytes"
+	"github.com/televi-go/televi/models/render/results"
 	"github.com/televi-go/televi/telegram"
 	"github.com/televi-go/televi/telegram/bot"
 	"github.com/televi-go/televi/telegram/dto"
@@ -35,14 +36,36 @@ func (entry *ResultEntry) cleanup(
 	}
 }
 
+func areEqualActionKeyboards(first, second results.InlineKeyboardResult) bool {
+	if len(first.Keyboard) != len(second.Keyboard) {
+		return false
+	}
+	for i := 0; i < len(first.Keyboard); i++ {
+		if len(first.Keyboard[i]) != len(second.Keyboard[i]) {
+			return false
+		}
+		for j := 0; j < len(first.Keyboard[i]); j++ {
+			if first.Keyboard[i][j] != second.Keyboard[i][j] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (entry *ResultEntry) compareAsText(
-	newer Message, destination telegram.Destination) telegram.Request {
-	return messages.EditMessageRequest{
+	newer Message, destination telegram.Destination) util.Option[telegram.Request] {
+
+	if entry.Text == newer.Text && areEqualActionKeyboards(entry.Actions, newer.Actions) {
+		return util.OptionEmpty[telegram.Request]()
+	}
+
+	return util.OptionValue[telegram.Request](messages.EditMessageRequest{
 		Destination: destination,
 		Text:        newer.Text,
 		MessageId:   entry.BoundIds[0],
 		ReplyMarkup: newer.Actions.ToReplyMarkup(),
-	}
+	})
 }
 
 func (entry *ResultEntry) compareAsSingleMedia(
@@ -77,6 +100,11 @@ func (entry *ResultEntry) compareAsSingleMedia(
 			Caption: newer.Text,
 		}
 	}
+
+	if areEqualActionKeyboards(entry.Actions, newer.Actions) {
+		return nil
+	}
+
 	return keyboards.EditInlineKeyboardRequest{
 		Destination: destination,
 		MessageId:   entry.BoundIds[0],
@@ -91,13 +119,9 @@ func (entry *ResultEntry) compareNonReplace(
 
 	switch entry.Message.GetKind() {
 	case TextKind:
-		return []telegram.Request{
-			entry.compareAsText(newer, destination),
-		}
+		return entry.compareAsText(newer, destination).ToSlice()
 	case SingleMediaKind:
-		return []telegram.Request{
-			entry.compareAsSingleMedia(newer, destination),
-		}
+		return util.OptionFromNullable[telegram.Request](entry.compareAsSingleMedia(newer, destination)).ToSlice()
 	}
 
 	return

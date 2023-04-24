@@ -9,6 +9,21 @@ func (option Option[T]) HasValue() bool {
 	return option.hasValue
 }
 
+func (option Option[T]) ToSlice() []T {
+	if option.hasValue {
+		return []T{option.value}
+	}
+	return nil
+}
+
+func OptionFromNullable[T any](v any) Option[T] {
+	t, isT := v.(T)
+	if v == nil || !isT {
+		return OptionEmpty[T]()
+	}
+	return OptionValue[T](t)
+}
+
 func (option Option[T]) ValuePtr() *T {
 	if !option.hasValue {
 		return nil
