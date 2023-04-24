@@ -10,7 +10,8 @@ func getRealPointer(v any) unsafe.Pointer {
 	return *(*unsafe.Pointer)(ptrToPtr)
 }
 
-func InjectInPlace(v any, c func()) {
+// InjectInPlace injects state callbacks directly into State fields
+func InjectInPlace(v any, c func()) (hasInjected bool) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() == reflect.Pointer || rv.Kind() == reflect.Interface {
 		rv = rv.Elem()
@@ -28,6 +29,8 @@ func InjectInPlace(v any, c func()) {
 
 			continue
 		}
+		hasInjected = true
 		mountable.Mount(c, unsafe.Add(ptr, rt.Field(i).Offset))
 	}
+	return
 }
