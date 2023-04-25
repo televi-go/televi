@@ -111,7 +111,7 @@ func (m *MessageBuilderImpl) Build() Message {
 	}
 }
 
-func (m *MessageBuilderImpl) Button(caption string, onclick func()) {
+func (m *MessageBuilderImpl) Button(caption string, onclick func(ctx builders.ClickContext)) {
 	data := m.Callbacks.bind(caption, onclick)
 	m.Add(keyboards.InlineKeyboardButton{
 		Caption:      caption,
