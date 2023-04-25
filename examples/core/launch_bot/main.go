@@ -56,7 +56,7 @@ func (b BodyInnerViewNext) View(builder builders.ComponentBuilder) {
 	builder.Message(func(viewBuilder builders.Message) {
 		viewBuilder.Text("This is next")
 		viewBuilder.Row(func(builder builders.ActionRowBuilder) {
-			builder.Button("Go back", func() {
+			builder.Button("Go back", func(ctx builders.ClickContext) {
 				b.Nav.Pop()
 			})
 		})
@@ -79,20 +79,20 @@ func (bodyInnerView BodyInnerView) View(builder builders.ComponentBuilder) {
 			node.Bold()
 		}
 		viewBuilder.Row(func(builder builders.ActionRowBuilder) {
-			builder.Button("Increase", func() {
+			builder.Button("Increase", func(ctx builders.ClickContext) {
 				bodyInnerView.State.SetValueFn(func(previous int) int {
 					return previous + 1
 				})
 			})
-			builder.Button("Transit", func() {
+			builder.Button("Transit", func(ctx builders.ClickContext) {
 				bodyInnerView.Nav.Push(BodyInnerViewNext{Nav: bodyInnerView.Nav})
 			})
 			if bodyInnerView.BoldState.Value() {
-				builder.Button("Make regular", func() {
+				builder.Button("Make regular", func(ctx builders.ClickContext) {
 					bodyInnerView.BoldState.SetValue(false)
 				})
 			} else {
-				builder.Button("MAKE BOLD", func() {
+				builder.Button("MAKE BOLD", func(ctx builders.ClickContext) {
 					bodyInnerView.BoldState.SetValue(true)
 				})
 			}

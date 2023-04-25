@@ -9,6 +9,7 @@ import (
 	"github.com/televi-go/televi/telegram"
 	"github.com/televi-go/televi/telegram/bot"
 	"github.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/telegram/messages"
 )
 
 type Controller struct {
@@ -63,8 +64,13 @@ func (controller *Controller) processEvent(event ExternalEvent) {
 }
 
 func (controller *Controller) processCallback(callback *dto.CallbackQuery) {
-
-	controller.currentStackEntry().BodyCallbacks.Execute(callback.Data)
+	ctx := body.ClickContextImpl{AnswerRequest: messages.AnswerCallbackRequest{
+		Id:        callback.ID,
+		Text:      "",
+		ShowAlert: false,
+	}}
+	controller.currentStackEntry().BodyCallbacks.Execute(callback.Data, &ctx)
+	controller.api.LaunchRequest(ctx.AnswerRequest)
 }
 
 func (controller *Controller) processMessage(message *dto.Message) {

@@ -11,3 +11,8 @@ type ActionScene interface {
 	Dispose()
 	OnMessage(message dto.Message)
 }
+
+type Navigator interface {
+	Push(scene ActionScene)
+	Pop()
+}

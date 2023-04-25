@@ -1,7 +1,7 @@
 package builders
 
 type Scene interface {
-	Head(builder func(headBuilder Head))
-	Body(builder func(bodyBuilder ComponentBuilder))
-	Navigator()
+	Head(builder func(head Head))
+	Body(builder func(body ComponentBuilder))
+	//Navigator()
 }
