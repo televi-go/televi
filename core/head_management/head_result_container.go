@@ -16,10 +16,12 @@ type HeadResultContainer struct {
 }
 
 func (container *HeadResultContainer) cleanup(destination telegram.Destination, api *bot.Api) {
-	api.LaunchRequest(messages.DeleteMessageRequest{
-		MessageId:   container.MessageId,
-		Destination: destination,
-	})
+	if container.MessageId != 0 {
+		api.LaunchRequest(messages.DeleteMessageRequest{
+			MessageId:   container.MessageId,
+			Destination: destination,
+		})
+	}
 }
 
 func (container *HeadResultContainer) CompareAgainst(
@@ -42,6 +44,6 @@ func (container *HeadResultContainer) CompareAgainst(
 
 	message, _ := telegram.ParseAs[dto.Message](response)
 	container.MessageId = message.MessageID
-
+	container.Result = newer
 	return true
 }

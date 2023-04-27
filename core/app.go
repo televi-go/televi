@@ -1,9 +1,9 @@
-package runner
+package core
 
 import (
 	"context"
 	"errors"
-	"github.com/televi-go/televi/core"
+	"github.com/televi-go/televi/core/external"
 	"github.com/televi-go/televi/profiler"
 	"github.com/televi-go/televi/telegram"
 	"github.com/televi-go/televi/telegram/bot"
@@ -14,12 +14,30 @@ import (
 )
 
 type App struct {
-	controllers      map[string]*core.Controller
+	controllers      map[string]*Controller
 	controllerAccess sync.Mutex
 	api              *bot.Api
-	initScene        func() core.ActionScene
+	initScene        func(Platform) ActionScene
 	context          context.Context
 	Profiler         *profiler.Throughput
+}
+
+func (app *App) getUserList() map[string]bool {
+	m := make(map[string]bool, len(app.controllers))
+	for dest := range app.controllers {
+		m[dest] = true
+	}
+	return m
+}
+
+func (app *App) DispatchExternal(event string, to external.Target, data any) {
+	targets := to.GetFromUserList(app.getUserList())
+	for _, target := range targets {
+		app.controllers[target].Dispatch(ExternalEvent{Domain: &DomainEvent{
+			Name: event,
+			Data: data,
+		}})
+	}
 }
 
 func (app *App) getUpdates() {
@@ -29,7 +47,7 @@ func (app *App) getUpdates() {
 	}
 }
 
-func NewApp(token string, address string, initScene func() core.ActionScene) (*App, error) {
+func NewApp(token string, address string, initScene func(platform Platform) ActionScene) (*App, error) {
 	if token == "" {
 		return nil, errors.New("token is empty")
 	}
@@ -41,7 +59,7 @@ func NewApp(token string, address string, initScene func() core.ActionScene) (*A
 	api := bot.NewApi(token, address)
 
 	return &App{
-		controllers:      map[string]*core.Controller{},
+		controllers:      map[string]*Controller{},
 		controllerAccess: sync.Mutex{},
 		api:              api,
 		initScene:        initScene,
@@ -52,12 +70,12 @@ func NewApp(token string, address string, initScene func() core.ActionScene) (*A
 	}, nil
 }
 
-func (app *App) getOrCreateController(destination telegram.Destination, info *dto.User) *core.Controller {
+func (app *App) getOrCreateController(destination telegram.Destination, info *dto.User) *Controller {
 	app.controllerAccess.Lock()
 	defer app.controllerAccess.Unlock()
 	controller, hasController := app.controllers[destination.ToString()]
 	if !hasController {
-		controller = core.NewController(destination, app.api, app.initScene(), info, app.Profiler)
+		controller = NewController(destination, app.api, app.initScene, info, app.Profiler)
 		app.controllers[destination.ToString()] = controller
 		go controller.Run(app.context)
 	}
@@ -65,7 +83,7 @@ func (app *App) getOrCreateController(destination telegram.Destination, info *dt
 }
 func (app *App) dispatchUpdate(update dto.Update) {
 	controller := app.getOrCreateController(telegram.ChatDestination{ChatId: int(update.SentFrom().ID)}, update.SentFrom())
-	controller.Dispatch(core.ExternalEvent{
+	controller.Dispatch(ExternalEvent{
 		Message:  update.Message,
 		Callback: update.CallbackQuery,
 	})

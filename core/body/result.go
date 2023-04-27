@@ -19,7 +19,17 @@ type ResultEntry struct {
 }
 
 type Result struct {
-	Entries []*ResultEntry
+	Entries             []*ResultEntry
+	PendingInterruption Interruption
+	BoundInterruption   Interruption
+}
+
+func (result *Result) AddInterruption(id int) {
+	result.PendingInterruption.MessageIds = append(result.PendingInterruption.MessageIds, id)
+}
+
+type Interruption struct {
+	MessageIds []int
 }
 
 func (entry *ResultEntry) cleanup(
@@ -168,6 +178,18 @@ func (result *Result) CompareAgainst(
 	destination telegram.Destination,
 	replaceMode bool,
 ) {
+
+	if len(result.PendingInterruption.MessageIds) != 0 {
+		replaceMode = true
+
+		for _, id := range result.BoundInterruption.MessageIds {
+			api.LaunchRequest(messages.DeleteMessageRequest{MessageId: id, Destination: destination})
+		}
+
+		result.BoundInterruption = result.PendingInterruption
+		result.PendingInterruption = Interruption{}
+	}
+
 	commonLength := util.Min(len(result.Entries), len(newer))
 	for i := 0; i < commonLength; i++ {
 		replaceMode = result.Entries[i].compareAgainst(newer[i], destination, api, replaceMode)

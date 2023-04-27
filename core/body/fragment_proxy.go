@@ -35,7 +35,6 @@ func (statefulFragment *StatefulFragment) RunWith(builder builders.ComponentBuil
 
 		disposableView, isDisposableView := statefulFragment.view.(builders.DisposableView)
 		if isDisposableView {
-
 			disposableView.Dispose()
 		}
 

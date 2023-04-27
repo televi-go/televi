@@ -28,6 +28,7 @@ func (api *Api) LogError(err error, request telegram.Request) {
 }
 
 func buildParams(in telegram.Params, files []telegram.File) (*bytes.Buffer, string) {
+
 	if in == nil {
 		return nil, ""
 	}

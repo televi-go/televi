@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"github.com/televi-go/televi/core/body"
-	"github.com/televi-go/televi/core/head_management"
 	"github.com/televi-go/televi/core/magic"
 	"github.com/televi-go/televi/profiler"
 	"github.com/televi-go/televi/telegram"
@@ -16,7 +15,7 @@ type Controller struct {
 	navStack                  NavigationStack
 	destination               telegram.Destination
 	stateUpdateChan           chan body.NeedsPaintTask
-	navigationChan            chan struct{}
+	navigationChan            chan NavigationTask
 	externalCommunicationChan chan ExternalEvent
 	api                       *bot.Api
 	context                   context.Context
@@ -24,27 +23,27 @@ type Controller struct {
 	Profiler                  *profiler.Throughput
 }
 
-func NewController(destination telegram.Destination, api *bot.Api, initScene ActionScene, info *dto.User, profiler *profiler.Throughput) *Controller {
+func NewController(destination telegram.Destination, api *bot.Api, initSceneCtor func(platform Platform) ActionScene, info *dto.User, profiler *profiler.Throughput) *Controller {
+	navC := make(chan NavigationTask, 10)
+	initScene := initSceneCtor(platformImpl{
+		NavImpl: NavImpl{
+			NavC: navC,
+		},
+		user: *info,
+	})
 	stateUpdateChannel := make(chan body.NeedsPaintTask, 10)
 	magic.InjectInPlace(initScene, func() {
 		stateUpdateChannel <- body.NeedsPaintTask{SceneStateUpdated: true}
 	})
+
 	controller := &Controller{
 		navStack: NavigationStack{
-			Current: &NavStackEntry{
-				BodyCallbacks: body.NewCallbacks(),
-				ActionScene:   initScene,
-				Previous:      nil,
-				Kind:          0,
-				HeadResult:    &head_management.HeadResultContainer{},
-				BodyRoot:      body.NewRoot(stateUpdateChannel),
-				BodyResult:    &body.Result{},
-			},
-			Destination: nil,
+			Current:     NewNavStackEntry(initScene, stateUpdateChannel, destination, nil),
+			Destination: destination,
 		},
 		destination:               destination,
 		stateUpdateChan:           stateUpdateChannel,
-		navigationChan:            make(chan struct{}, 10),
+		navigationChan:            navC,
 		externalCommunicationChan: make(chan ExternalEvent, 100),
 		api:                       api,
 		userInfo:                  info,
@@ -61,6 +60,10 @@ func (controller *Controller) processEvent(event ExternalEvent) {
 	if event.Callback != nil {
 		controller.processCallback(event.Callback)
 	}
+
+	if event.Domain != nil {
+		controller.currentStackEntry().ExternalCallbacks.Dispatch(event.Domain.Name, event.Domain.Data)
+	}
 }
 
 func (controller *Controller) processCallback(callback *dto.CallbackQuery) {
@@ -75,9 +78,12 @@ func (controller *Controller) processCallback(callback *dto.CallbackQuery) {
 
 func (controller *Controller) processMessage(message *dto.Message) {
 	callback, hasCallback := controller.currentStackEntry().HeadResult.HeadCallbacks.OnRegularButton[message.Text]
+	controller.currentStackEntry().BodyResult.AddInterruption(message.MessageID)
 	if hasCallback {
 		callback()
+		return
 	}
+	controller.currentStackEntry().ActionScene.OnMessage(*message)
 }
 
 func (controller *Controller) currentStackEntry() *NavStackEntry {
@@ -91,32 +97,38 @@ func (controller *Controller) currentScene() ActionScene {
 func (controller *Controller) paint(needsBodyRepaint bool) {
 	sw := controller.Profiler.NewStopwatch("paint")
 	defer sw.Record()
-	bodyRoot := controller.currentStackEntry().BodyRoot
-	if needsBodyRepaint {
-		bodyRoot.SetNeedsUpdate()
-	}
-	sceneContext := NewSceneContext(bodyRoot)
-	controller.currentScene().View(sceneContext)
-	var wasReplaced = false
-	if needsBodyRepaint {
-		headResult := sceneContext.HeadBuilder.Build()
-		headResultContainer := controller.currentStackEntry().HeadResult
-		wasReplaced = headResultContainer.CompareAgainst(headResult, controller.destination, controller.api)
-		headResultContainer.HeadCallbacks = sceneContext.HeadBuilder.Callbacks
-	}
-
-	bodyResultLine, callbacks := sceneContext.Root.ProvideResult()
-	controller.currentStackEntry().BodyResult.CompareAgainst(
-		bodyResultLine,
-		controller.api,
-		controller.destination,
-		wasReplaced,
-	)
-	controller.currentStackEntry().BodyCallbacks = callbacks
+	controller.currentStackEntry().Render(needsBodyRepaint, controller.api)
 }
 
 func (controller *Controller) Dispatch(event ExternalEvent) {
 	controller.externalCommunicationChan <- event
+}
+
+func (controller *Controller) processNavTask(task NavigationTask) {
+	defer controller.paint(true)
+	switch task.Action {
+	case ExtendAction:
+		controller.navStack.push(task.Target, controller.stateUpdateChan, true, controller.api)
+		break
+	case ReplaceAction:
+		controller.navStack.push(task.Target, controller.stateUpdateChan, false, controller.api)
+		break
+	case PopAction:
+		controller.navStack.pop()
+		break
+	case PopToMainAction:
+		controller.navStack.popMain()
+		break
+	}
+}
+
+type platformImpl struct {
+	NavImpl
+	user dto.User
+}
+
+func (p platformImpl) GetUser() dto.User {
+	return p.user
 }
 
 func (controller *Controller) Run(ctx context.Context) {
@@ -128,11 +140,14 @@ func (controller *Controller) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case evt := <-controller.externalCommunicationChan:
-			controller.processEvent(evt)
-		case <-controller.navigationChan:
-			controller.paint(true)
+			go controller.processEvent(evt)
+			break
+		case task := <-controller.navigationChan:
+			controller.processNavTask(task)
+			break
 		case stateUpdate := <-controller.stateUpdateChan:
 			controller.paint(stateUpdate.SceneStateUpdated)
+			break
 		}
 	}
 }

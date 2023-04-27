@@ -12,5 +12,5 @@ type DisposableView interface {
 
 type ComponentBuilder interface {
 	Component(View)
-	Message(builder func(viewBuilder Message))
+	Message(builder func(message Message))
 }
