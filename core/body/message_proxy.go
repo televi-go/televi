@@ -88,6 +88,11 @@ func (proxy *proxyMessageBuilderImpl) Text(value string) pages.IFormatter {
 	}))
 	return formatter
 }
+func (proxy *proxyMessageBuilderImpl) SetProtection() {
+	proxy.Descendants = append(proxy.Descendants, StatelessMessageBuilder(func(builder builders.Message) {
+		builder.SetProtection()
+	}))
+}
 
 func (proxy *proxyMessageBuilderImpl) TextLine(value string) pages.IFormatter {
 	return proxy.Text(value + "\n")

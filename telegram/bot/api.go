@@ -13,12 +13,20 @@ import (
 	"net/http"
 	"net/textproto"
 	"runtime"
+	"strconv"
+	"strings"
 )
 
 type Api struct {
 	Token   string
 	client  http.Client
 	Address string
+}
+
+func (api *Api) GetBotId() int {
+	split := strings.Split(api.Token, ":")
+	v, _ := strconv.Atoi(split[0])
+	return v
 }
 
 func (api *Api) LogError(err error, request telegram.Request) {
@@ -72,6 +80,10 @@ func (api *Api) getHttpRequest(request telegram.Request, ctx context.Context) (*
 	params, err := request.Params()
 	if err != nil {
 		return nil, err
+	}
+
+	if len(params) == 0 {
+		return http.NewRequestWithContext(ctx, "GET", endPoint, nil)
 	}
 
 	var files []telegram.File

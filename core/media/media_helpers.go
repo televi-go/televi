@@ -13,6 +13,10 @@ func ImageFile(builder Insertable, filename string) {
 	builder.Media(File(filename, ImageKind))
 }
 
+func VideoFile(builder Insertable, filename string) {
+	builder.Media(File(filename, VideoKind))
+}
+
 func Bytes(source []byte, key string, kind Kind) Media {
 	return Media{
 		Kind:       kind,

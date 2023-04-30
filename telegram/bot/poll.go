@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/televi-go/televi/telegram"
 	"github.com/televi-go/televi/telegram/dto"
+	"log"
 )
 
 func (api *Api) getUpdates(request telegram.GetUpdatesRequest, ctx context.Context) (updates []dto.Update, err error) {
@@ -43,7 +44,7 @@ func (api *Api) Poll(ctx context.Context) <-chan dto.Update {
 			default:
 				updates, err := api.getUpdates(request, ctx)
 				if err != nil {
-					continue
+					log.Printf("error in getting updates %v\n", err)
 				}
 				for _, update := range updates {
 					if update.UpdateID >= request.Offset {

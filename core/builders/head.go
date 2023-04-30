@@ -16,6 +16,7 @@ type ContentBuilder interface {
 type Head interface {
 	ContentBuilder
 	media.Insertable
+	SetProtection()
 	Menu
 }
 
@@ -28,5 +29,6 @@ type Message interface {
 	media.Insertable
 	ContentBuilder
 	ActionsBuilder
+	SetProtection()
 	Component(view InMessageView)
 }

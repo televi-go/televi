@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"github.com/gofiber/fiber/v2"
 	"github.com/televi-go/televi/core"
 	"github.com/televi-go/televi/core/builders"
 	"github.com/televi-go/televi/core/external"
@@ -30,7 +32,8 @@ func (rootScene RootScene) OnMessage(message dto.Message) {}
 
 func (rootScene RootScene) View(builder builders.Scene) {
 	builder.Head(func(headBuilder builders.Head) {
-		media.ImageFile(headBuilder, "examples/launch_bot/welcome_pic.png")
+		headBuilder.SetProtection()
+		media.VideoFile(headBuilder, "examples/launch_bot/sub.mov")
 		headBuilder.Text("This is a televi-go bot")
 		headBuilder.Row(func(builder builders.MenuRow) {
 			builder.Button("Increase", func() {
@@ -150,13 +153,16 @@ func (landing LandingScene) OnMessage(message dto.Message) {}
 
 func main() {
 	fmt.Printf("Process %d\n", os.Getpid())
-	app, err := core.NewApp(
-		os.Getenv("Token"),
-		"https://api.telegram.org",
-		func(platform core.Platform) core.ActionScene {
+	app, err := core.NewAppBuilder().
+		WithEnvToken("Token").
+		WithDefaultAddress().
+		WithRootScene(func(platform core.Platform) core.ActionScene {
 			return RootScene{Platform: platform}
-		},
-	)
+		}).
+		WithServerSetup(func(router fiber.Router, db *sql.DB) {
+
+		}).
+		Build()
 	if err != nil {
 		log.Fatalln(err)
 	}

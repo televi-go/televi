@@ -89,8 +89,9 @@ type MessageProducer interface {
 }
 
 type MessageBuilderImpl struct {
-	media     []media.Media
-	Callbacks *Callbacks
+	media       []media.Media
+	Callbacks   *Callbacks
+	IsProtected bool
 	abstractions.TextHtmlBuilder
 	abstractions.TwoDimensionBuilder[keyboards.InlineKeyboardButton]
 	IsCached bool
@@ -100,6 +101,10 @@ func (m *MessageBuilderImpl) SetIsModified(value bool) {
 	m.IsCached = !value
 }
 
+func (m *MessageBuilderImpl) SetProtection() {
+	m.IsProtected = true
+}
+
 func (m *MessageBuilderImpl) Build() Message {
 	return Message{
 		Media: m.media,
@@ -107,7 +112,8 @@ func (m *MessageBuilderImpl) Build() Message {
 		Actions: results.InlineKeyboardResult{
 			Keyboard: m.Elements,
 		},
-		IsCached: m.IsCached,
+		IsCached:       m.IsCached,
+		ProtectContent: m.IsProtected,
 	}
 }
 
