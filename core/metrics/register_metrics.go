@@ -57,13 +57,18 @@ type HeaderData struct {
 
 var headerComponent = gopage.MakeComponent[HeaderData](`
 	<div class="heading" >
-        <div class="content-wrap" style="position:relative; height: 80px">
+        <div class="content-wrap" style="position:relative; height: 80px; display:flex; align-items: center; isolation: isolate">
+            <div id="menu" class="hidden"></div>
             <img src="https://www.unpkg.com/televi_assets_x@latest/images/logo.png"
                  style="display: block; position: absolute; height:100%; top:0; left:-90px"
                  alt="">
-            <h1 style="margin:auto 0">
-                {Title}
+            <h1 style="margin:auto 0; flex:1">
+                Clients
             </h1>
+            <div class="material-symbols-rounded clickable" id="menu-button">
+                menu
+            </div>
+
         </div>
     </div>
 	`)
