@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/televi-go/migrate"
-	"github.com/televi-go/televi/gopage"
+	"github.com/televi-go/televi/core/metrics/pages"
 	"github.com/televi-go/televi/telegram/dto"
+	"github.com/televi-go/televi/util"
 	"net/http"
 	"time"
 )
@@ -31,60 +32,15 @@ func SetupRouterCommons(router fiber.Router, db *sql.DB, botInfo string) {
 		if err != nil {
 			return ctx.Status(http.StatusInternalServerError).SendString(err.Error())
 		}
-		writer := gopage.NewHtmlWriter(ctx)
-		return writer.WritePage(usersPage(users, botInfo))
+
+		viewData := pages.JoinedPageViewData{
+			Title:  "Users joined",
+			Name:   botInfo,
+			Groups: makeGroups(users),
+		}
+		ctx.Set("content-type", "text/html; charset=utf-8")
+		return pages.JoinedPageTemplate.Execute(ctx, viewData)
 	})
-}
-
-func headMixin(context gopage.Context, title string) {
-	context.OpenTag("head")
-	context.OpenSelfClosing("meta")
-	context.Attributes(gopage.Attr{Key: "charset", Value: "UTF-8"})
-	context.CloseTag()
-	context.OpenTag("title")
-	context.Content(title)
-	context.CloseTag()
-	context.OpenTag("link")
-	gopage.WriteAttribute(context, "rel", "stylesheet")
-	gopage.WriteAttribute(context, "href", "https://www.unpkg.com/televi_assets_x@latest/css/main.css")
-	context.CloseTag()
-	context.CloseTag()
-}
-
-type HeaderData struct {
-	Title string
-}
-
-var headerComponent = gopage.MakeComponent[HeaderData](`
-	<div class="heading" >
-        <div class="content-wrap" style="position:relative; height: 80px; display:flex; align-items: center; isolation: isolate">
-            <div id="menu" class="hidden"></div>
-            <img src="https://www.unpkg.com/televi_assets_x@latest/images/logo.png"
-                 style="display: block; position: absolute; height:100%; top:0; left:-90px"
-                 alt="">
-            <h1 style="margin:auto 0; flex:1">
-                Clients
-            </h1>
-            <div class="material-symbols-rounded clickable" id="menu-button">
-                menu
-            </div>
-
-        </div>
-    </div>
-	`)
-
-func writeHeader(ctx gopage.Context, title string) {
-	headerComponent(HeaderData{Title: title}, ctx)
-}
-
-func bodyWrap(content gopage.RenderAction) gopage.RenderAction {
-	return func(ctx gopage.Context) {
-		ctx.OpenTag("div")
-		gopage.WriteAttribute(ctx, "class", "content-wrap")
-		gopage.WriteAttribute(ctx, "style", "display:block")
-		content(ctx)
-		ctx.CloseTag()
-	}
 }
 
 type BotNameData struct {
@@ -98,20 +54,79 @@ type UserRowData struct {
 	RegisteredAt string
 }
 
-var usersRowComponent = gopage.MakeComponent[UserRowData](`
-<div class="user-row-wrap">
-	<div class="joined_at">{RegisteredAt}</div>
-	<div class="username">{UserName}</div>
-	<div class="first_name">{FirstName}</div>
-	<div class="last_name">{LastName}</div>
-</div>
-`)
+func isSameDay(val time.Time, point time.Time) bool {
+	yearP, monthP, dayP := point.Date()
+	yearV, monthV, dayV := val.Date()
+	return yearP == yearV && monthP == monthV && dayP == dayV
+}
 
-var descriptionComponent = gopage.MakeComponent[BotNameData](`
-<h2>
-Bot <a href="https://t.me/{Name}">@{Name}</a>
-</h2>
-`)
+func isToday(val time.Time) bool {
+	return isSameDay(val, time.Now())
+}
+
+func isYesterday(val time.Time) bool {
+	return isSameDay(val, time.Now().Add(-time.Hour*24)) && !isToday(val)
+}
+
+func isThisWeek(val time.Time) bool {
+	currYear, currWeek := time.Now().ISOWeek()
+	valYear, valWeek := val.ISOWeek()
+	return currYear == valYear && currWeek == valWeek
+}
+
+func isThisMonth(val time.Time) bool {
+	yearP, monthP, _ := time.Now().Date()
+	yearV, monthV, _ := val.Date()
+	return yearP == yearV && monthP == monthV
+}
+
+func toJoinedData(in []UserRegisteredAt, timeFormat string) []pages.JoinedAt {
+	return util.Map(in, func(elem UserRegisteredAt) pages.JoinedAt {
+		return pages.JoinedAt{
+			FirstName:   elem.FirstName,
+			LastName:    elem.LastName,
+			FormattedAt: elem.RegisteredAt.Format(timeFormat),
+			UiName:      elem.UiName(),
+		}
+	})
+}
+
+func makeGroups(source []UserRegisteredAt) (groups []pages.Group) {
+	todayGroupContent, notToday := util.FilterOut(source, func(elem UserRegisteredAt) bool {
+		return isToday(elem.RegisteredAt)
+	})
+	if len(todayGroupContent) != 0 {
+		groups = append(groups, pages.Group{
+			Title: "Today",
+			Users: toJoinedData(todayGroupContent, "15:04"),
+		})
+	}
+
+	yesterdayContent, notLatterTwoDays := util.FilterOut(notToday, func(elem UserRegisteredAt) bool {
+		return isYesterday(elem.RegisteredAt)
+	})
+
+	if len(yesterdayContent) != 0 {
+		groups = append(groups, pages.Group{
+			Title: "Yesterday",
+			Users: toJoinedData(yesterdayContent, "15:04"),
+		})
+	}
+
+	weekContent, earlierContent := util.FilterOut(notLatterTwoDays, func(elem UserRegisteredAt) bool {
+		return isThisWeek(elem.RegisteredAt)
+	})
+
+	if len(weekContent) != 0 {
+		groups = append(groups, pages.Group{Title: "This week", Users: toJoinedData(weekContent, "Monday 15:04")})
+	}
+
+	if len(earlierContent) != 0 {
+		groups = append(groups, pages.Group{Title: "Earlier", Users: toJoinedData(earlierContent, "02.01 15:04")})
+	}
+
+	return
+}
 
 const userRowStyle = `
 <style>
@@ -135,33 +150,6 @@ const userRowStyle = `
 
 </style>
 `
-
-func usersPage(users []UserRegisteredAt, botInfo string) gopage.Page {
-	return func(context gopage.Context) {
-		headMixin(context, "users")
-		context.OpenTag("body")
-
-		writeHeader(context, "Clients")
-
-		bodyWrap(func(ctx gopage.Context) {
-			descriptionComponent.Mount(ctx, BotNameData{Name: botInfo})
-			context.OpenTag("div")
-			gopage.WriteAttribute(ctx, "class", "users-table")
-			context.Content(userRowStyle)
-			for _, user := range users {
-				usersRowComponent.Mount(ctx, UserRowData{
-					FirstName:    user.FirstName,
-					LastName:     user.LastName,
-					UserName:     user.UiName(),
-					RegisteredAt: user.RegisteredAt.Format("02.01.06 15:04"),
-				})
-			}
-			context.CloseTag()
-		}).Mount(context)
-
-		context.CloseTag()
-	}
-}
 
 type UserRegisteredAt struct {
 	dto.User
@@ -243,6 +231,18 @@ CREATE TABLE users (
 );
 `
 
+const createActionsTable = `
+CREATE TABLE actions (
+    user_id BIGINT NOT NULL,
+    domain VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    committedAt TIMESTAMP NOT NULL,
+    primary key (user_id, domain, action),
+    index (user_id),
+    foreign key fk_user_id (user_id) references users(id)
+);
+`
+
 const createJoinTable = `
 CREATE TABLE users_joined (
     user_id BIGINT NOT NULL,
@@ -253,16 +253,22 @@ CREATE TABLE users_joined (
 `
 
 var usersMigration = migrate.InMemory{
-	Name:       "users-joined.up.sql",
+	Name:       "users.up.sql",
 	Statements: createUsersTable,
 }
 
 var joinedMigration = migrate.InMemory{
-	Name:       "users.up.sql",
+	Name:       "users-joined.up.sql",
 	Statements: createJoinTable,
+}
+
+var actionsMigration = migrate.InMemory{
+	Name:       "users-with-actions.up.sql",
+	Statements: createActionsTable,
 }
 
 var allMigrations = []migrate.InMemory{
 	usersMigration,
 	joinedMigration,
+	actionsMigration,
 }
