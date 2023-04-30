@@ -46,7 +46,7 @@ func headMixin(context gopage.Context, title string) {
 	context.CloseTag()
 	context.OpenTag("link")
 	gopage.WriteAttribute(context, "rel", "stylesheet")
-	gopage.WriteAttribute(context, "href", "https://www.unpkg.com/televi_assets_x@1.0.4/css/main.css")
+	gopage.WriteAttribute(context, "href", "https://www.unpkg.com/televi_assets_x@latest/css/main.css")
 	context.CloseTag()
 	context.CloseTag()
 }
@@ -58,7 +58,7 @@ type HeaderData struct {
 var headerComponent = gopage.MakeComponent[HeaderData](`
 	<div class="heading" >
         <div class="content-wrap" style="position:relative; height: 80px">
-            <img src="https://www.unpkg.com/televi_assets_x@1.0.4/images/logo.png"
+            <img src="https://www.unpkg.com/televi_assets_x@latest/images/logo.png"
                  style="display: block; position: absolute; height:100%; top:0; left:-90px"
                  alt="">
             <h1 style="margin:auto 0">
