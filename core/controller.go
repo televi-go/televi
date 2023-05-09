@@ -2,13 +2,17 @@ package core
 
 import (
 	"context"
+	"database/sql"
 	"github.com/televi-go/televi/core/body"
 	"github.com/televi-go/televi/core/magic"
+	"github.com/televi-go/televi/core/metrics"
 	"github.com/televi-go/televi/profiler"
 	"github.com/televi-go/televi/telegram"
 	"github.com/televi-go/televi/telegram/bot"
 	"github.com/televi-go/televi/telegram/dto"
 	"github.com/televi-go/televi/telegram/messages"
+	"log"
+	"runtime"
 )
 
 type Controller struct {
@@ -23,9 +27,10 @@ type Controller struct {
 	Profiler                  *profiler.Throughput
 }
 
-func NewController(destination telegram.Destination, api *bot.Api, initSceneCtor func(platform Platform) ActionScene, info *dto.User, profiler *profiler.Throughput) *Controller {
+func NewController(destination telegram.Destination, api *bot.Api, initSceneCtor func(platform Platform) ActionScene, info *dto.User, profiler *profiler.Throughput, db *sql.DB) *Controller {
 	navC := make(chan NavigationTask, 10)
 	initScene := initSceneCtor(platformImpl{
+		db: db,
 		NavImpl: NavImpl{
 			NavC: navC,
 		},
@@ -78,7 +83,7 @@ func (controller *Controller) processCallback(callback *dto.CallbackQuery) {
 
 func (controller *Controller) processMessage(message *dto.Message) {
 	callback, hasCallback := controller.currentStackEntry().HeadResult.HeadCallbacks.OnRegularButton[message.Text]
-	controller.currentStackEntry().BodyResult.AddInterruption(message.MessageID)
+	controller.currentStackEntry().BodyResult.AddInterruption(message.MessageID, hasCallback)
 	if hasCallback {
 		callback()
 		return
@@ -124,7 +129,23 @@ func (controller *Controller) processNavTask(task NavigationTask) {
 
 type platformImpl struct {
 	NavImpl
+	db   *sql.DB
 	user dto.User
+}
+
+func (p platformImpl) RegisterAction(domain string, action string) {
+
+	if p.db == nil {
+		stackBuf := make([]byte, 3000)
+		runtime.Stack(stackBuf, false)
+		log.Printf("Error while trying to access DB in platform: %s\n", stackBuf)
+		return
+	}
+
+	err := metrics.RegisterAction(p.db, p.user.ID, domain, action)
+	if err != nil {
+		log.Printf("error registering action %s.%s of %d: %v", domain, action, p.user.ID, err)
+	}
 }
 
 func (p platformImpl) GetUser() dto.User {

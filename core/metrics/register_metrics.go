@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"github.com/televi-go/migrate"
+	"github.com/televi-go/televi/core/metrics/grouping"
 	"github.com/televi-go/televi/core/metrics/pages"
 	"github.com/televi-go/televi/telegram/dto"
 	"github.com/televi-go/televi/util"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -41,6 +43,18 @@ func SetupRouterCommons(router fiber.Router, db *sql.DB, botInfo string) {
 		ctx.Set("content-type", "text/html; charset=utf-8")
 		return pages.JoinedPageTemplate.Execute(ctx, viewData)
 	})
+	router.Get("/actions", func(ctx *fiber.Ctx) error {
+		action := ctx.Query("action")
+
+		actions, err := getUserActions(db, action)
+		uniqueActions, err2 := getUniqueActions(db)
+		if err != nil || err2 != nil {
+			return ctx.Status(http.StatusInternalServerError).SendString(err.Error())
+		}
+
+		ctx.Set("content-type", "text/html; charset=utf-8")
+		return pages.ExecuteActionsPage(ctx, actions, action, uniqueActions)
+	})
 }
 
 type BotNameData struct {
@@ -54,32 +68,6 @@ type UserRowData struct {
 	RegisteredAt string
 }
 
-func isSameDay(val time.Time, point time.Time) bool {
-	yearP, monthP, dayP := point.Date()
-	yearV, monthV, dayV := val.Date()
-	return yearP == yearV && monthP == monthV && dayP == dayV
-}
-
-func isToday(val time.Time) bool {
-	return isSameDay(val, time.Now())
-}
-
-func isYesterday(val time.Time) bool {
-	return isSameDay(val, time.Now().Add(-time.Hour*24)) && !isToday(val)
-}
-
-func isThisWeek(val time.Time) bool {
-	currYear, currWeek := time.Now().ISOWeek()
-	valYear, valWeek := val.ISOWeek()
-	return currYear == valYear && currWeek == valWeek
-}
-
-func isThisMonth(val time.Time) bool {
-	yearP, monthP, _ := time.Now().Date()
-	yearV, monthV, _ := val.Date()
-	return yearP == yearV && monthP == monthV
-}
-
 func toJoinedData(in []UserRegisteredAt, timeFormat string) []pages.JoinedAt {
 	return util.Map(in, func(elem UserRegisteredAt) pages.JoinedAt {
 		return pages.JoinedAt{
@@ -91,65 +79,94 @@ func toJoinedData(in []UserRegisteredAt, timeFormat string) []pages.JoinedAt {
 	})
 }
 
+func getUniqueActions(db *sql.DB) ([]pages.ActionInfo, error) {
+	rows, err := db.Query("select (CONCAT(domain, '.', action)) from actions")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result map[string]int = map[string]int{}
+
+	for rows.Next() {
+		var action string
+		err = rows.Scan(&action)
+		if err != nil {
+			return nil, err
+		}
+		action = strings.TrimPrefix(action, ".")
+		result[action] = result[action] + 1
+	}
+
+	info := make([]pages.ActionInfo, 0, len(result))
+	for a, count := range result {
+		info = append(info, pages.ActionInfo{Action: a, Count: count})
+	}
+	return info, nil
+}
+
+func RegisterAction(db *sql.DB, userId int64, domain string, action string) error {
+	_, err := db.Exec(
+		"insert into actions (user_id, domain, action, committedAt) values (?, ?, ?, ?)",
+		userId,
+		domain,
+		action,
+		time.Now(),
+	)
+	return err
+}
+
 func makeGroups(source []UserRegisteredAt) (groups []pages.Group) {
 	todayGroupContent, notToday := util.FilterOut(source, func(elem UserRegisteredAt) bool {
-		return isToday(elem.RegisteredAt)
+		return grouping.IsToday(elem.RegisteredAt)
 	})
 	if len(todayGroupContent) != 0 {
-		groups = append(groups, pages.Group{
-			Title: "Today",
-			Users: toJoinedData(todayGroupContent, "15:04"),
-		})
+		groups = append(groups, pages.MakeGroup(
+			"Today",
+			toJoinedData(todayGroupContent, "15:04"),
+		))
 	}
 
 	yesterdayContent, notLatterTwoDays := util.FilterOut(notToday, func(elem UserRegisteredAt) bool {
-		return isYesterday(elem.RegisteredAt)
+		return grouping.IsYesterday(elem.RegisteredAt)
 	})
 
 	if len(yesterdayContent) != 0 {
-		groups = append(groups, pages.Group{
-			Title: "Yesterday",
-			Users: toJoinedData(yesterdayContent, "15:04"),
-		})
+		groups = append(groups, pages.MakeGroup(
+			"Yesterday",
+			toJoinedData(yesterdayContent, "15:04"),
+		))
 	}
 
 	weekContent, earlierContent := util.FilterOut(notLatterTwoDays, func(elem UserRegisteredAt) bool {
-		return isThisWeek(elem.RegisteredAt)
+		return grouping.IsThisWeek(elem.RegisteredAt)
 	})
 
 	if len(weekContent) != 0 {
-		groups = append(groups, pages.Group{Title: "This week", Users: toJoinedData(weekContent, "Monday 15:04")})
+		groups = append(groups,
+			pages.MakeGroup("This week", toJoinedData(weekContent, "Monday 15:04")))
 	}
 
-	if len(earlierContent) != 0 {
-		groups = append(groups, pages.Group{Title: "Earlier", Users: toJoinedData(earlierContent, "02.01 15:04")})
+	thisMonthContent, prevMonthsContent := util.FilterOut(earlierContent, func(elem UserRegisteredAt) bool {
+		return grouping.IsThisMonth(elem.RegisteredAt)
+	})
+
+	if len(thisMonthContent) != 0 {
+		groups = append(groups, pages.MakeGroup("This month", toJoinedData(thisMonthContent, "02.01")))
+	}
+
+	mi := util.MonthIterFrom(time.Now()).Prev()
+	var currMonthContent []UserRegisteredAt
+	for len(prevMonthsContent) > 0 {
+		currMonthContent, prevMonthsContent = util.FilterOut(prevMonthsContent, func(elem UserRegisteredAt) bool {
+			return elem.RegisteredAt.After(mi.Begin()) && elem.RegisteredAt.Before(mi.End())
+		})
+		if len(currMonthContent) > 0 {
+			groups = append(groups, pages.MakeGroup(mi.Begin().Format("January"), toJoinedData(currMonthContent, "02.01")))
+		}
 	}
 
 	return
 }
-
-const userRowStyle = `
-<style>
-	.user-row-wrap {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		padding-block: 8px;
-	}
-
-	.joined_at {
-		width: 7rem;
-	}
-
-	.username {
-		width: 7rem;
-	}
-	.first_name {
-		width: 7rem;
-	}
-
-</style>
-`
 
 type UserRegisteredAt struct {
 	dto.User
@@ -169,6 +186,10 @@ func AddRegistered(db *sql.DB, user *dto.User) error {
 	err := row.Scan(&exists)
 	if err != nil {
 		return err
+	}
+
+	if exists {
+		return nil
 	}
 
 	tx, err := db.Begin()
@@ -218,6 +239,59 @@ func getAllUsersWithRegisterData(db *sql.DB) (result []UserRegisteredAt, err err
 	return
 }
 
+func PrintAction(domain, action string) string {
+	if domain == "" {
+		return action
+	}
+	return fmt.Sprintf("%s.%s", domain, action)
+}
+
+func getUserActions(db *sql.DB, action string) (result []pages.UserWithAction, err error) {
+	rows, err := db.Query(`select 
+    actions.domain,
+    actions.action,
+    actions.committedAt,
+    users.id,
+    users.first_name,
+    users.is_premium,
+    coalesce(users.last_name, ''),
+    coalesce(users.username, '') from actions left join users on actions.user_id = users.id where actions.action = ? or ? = '' order by actions.committedAt desc`, action, action)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			domain      string
+			action      string
+			committedAt time.Time
+			userId      int64
+			firstname   string
+			isPremium   bool
+			lastname    string
+			username    string
+		)
+		err = rows.Scan(&domain, &action, &committedAt, &userId, &firstname, &isPremium, &lastname, &username)
+		if err != nil {
+			return nil, err
+		}
+		if username == "" {
+			username = fmt.Sprintf("#%d", userId)
+		}
+		result = append(result, pages.UserWithAction{
+			Action:      PrintAction(domain, action),
+			CommittedAt: committedAt,
+			FirstName:   firstname,
+			LastName:    lastname,
+			UserName:    username,
+			IsPremium:   isPremium,
+		})
+	}
+
+	return
+}
+
 const createUsersTable = `
 CREATE TABLE users (
 	id BIGINT NOT NULL,
@@ -237,9 +311,10 @@ CREATE TABLE actions (
     domain VARCHAR(64) NOT NULL,
     action VARCHAR(64) NOT NULL,
     committedAt TIMESTAMP NOT NULL,
-    primary key (user_id, domain, action),
+    id int not null primary key auto_increment,
+    index (action),
     index (user_id),
-    foreign key fk_user_id (user_id) references users(id)
+    foreign key fk_user_id (user_id) references users(id) on delete cascade
 );
 `
 

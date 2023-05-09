@@ -15,7 +15,8 @@ import (
 
 type ResultEntry struct {
 	Message
-	BoundIds []int
+	Interruption Interruption
+	BoundIds     []int
 }
 
 type Result struct {
@@ -24,12 +25,21 @@ type Result struct {
 	BoundInterruption   Interruption
 }
 
-func (result *Result) AddInterruption(id int) {
-	result.PendingInterruption.MessageIds = append(result.PendingInterruption.MessageIds, id)
+func (result *Result) AddInterruption(id int, isNav bool) {
+	result.PendingInterruption.MessageIds = append(result.PendingInterruption.MessageIds, InterEntry{MessageId: id, IsNavigation: isNav})
+}
+
+type InterEntry struct {
+	MessageId    int
+	IsNavigation bool
 }
 
 type Interruption struct {
-	MessageIds []int
+	MessageIds []InterEntry
+}
+
+func (i Interruption) IsEmpty() bool {
+	return len(i.MessageIds) == 0
 }
 
 func (entry *ResultEntry) cleanup(
@@ -44,6 +54,12 @@ func (entry *ResultEntry) cleanup(
 			})
 		}
 	}
+	for _, id := range entry.Interruption.MessageIds {
+		if id.MessageId != 0 {
+			api.LaunchRequest(messages.DeleteMessageRequest{MessageId: id.MessageId, Destination: destination})
+		}
+	}
+	entry.Interruption = Interruption{}
 }
 
 func areEqualActionKeyboards(first, second results.InlineKeyboardResult) bool {
@@ -137,6 +153,24 @@ func (entry *ResultEntry) compareNonReplace(
 	return
 }
 
+func (entry *ResultEntry) compareReplacing(
+	newer Message,
+	destination telegram.Destination,
+	api *bot.Api,
+) {
+	entry.cleanup(api, destination)
+	response, err := api.Request(newer.InitRequest(destination))
+	if err != nil {
+		stacktraceBuf := make([]byte, 1000)
+		runtime.Stack(stacktraceBuf, true)
+		log.Printf("error in sending body message %v %v\n", err, stacktraceBuf)
+		return
+	}
+
+	messageList, _ := telegram.ParseAs[dto.MessageList](response)
+	entry.BoundIds = messageList.CollectIds()
+}
+
 func (entry *ResultEntry) compareAgainst(
 	newer Message,
 	destination telegram.Destination,
@@ -150,21 +184,18 @@ func (entry *ResultEntry) compareAgainst(
 
 	if replaceMode || entry.GetKind() != newer.GetKind() {
 		replaceMode = true
-		entry.cleanup(api, destination)
-		response, err := api.Request(newer.InitRequest(destination))
-		if err != nil {
-			stacktraceBuf := make([]byte, 1000)
-			runtime.Stack(stacktraceBuf, true)
-			log.Printf("error in sending body message %v %v\n", err, stacktraceBuf)
-			return replaceMode
-		}
-
-		messageList, _ := telegram.ParseAs[dto.MessageList](response)
-		entry.BoundIds = messageList.CollectIds()
+		entry.compareReplacing(newer, destination, api)
 		return replaceMode
 	}
 
 	editRequests := entry.compareNonReplace(newer, destination)
+
+	if len(editRequests) != 0 && len(entry.Interruption.MessageIds) != 0 {
+		entry.compareReplacing(newer, destination, api)
+		entry.Interruption = Interruption{}
+		return true
+	}
+
 	for _, request := range editRequests {
 		api.LaunchRequest(request)
 	}
@@ -179,14 +210,26 @@ func (result *Result) CompareAgainst(
 	replaceMode bool,
 ) {
 
-	if len(result.PendingInterruption.MessageIds) != 0 {
+	if !result.BoundInterruption.IsEmpty() && !result.PendingInterruption.IsEmpty() {
 		replaceMode = true
-
 		for _, id := range result.BoundInterruption.MessageIds {
-			api.LaunchRequest(messages.DeleteMessageRequest{MessageId: id, Destination: destination})
+			api.LaunchRequest(messages.DeleteMessageRequest{MessageId: id.MessageId, Destination: destination})
+		}
+		result.BoundInterruption = Interruption{}
+	}
+
+	if len(result.PendingInterruption.MessageIds) != 0 {
+		//replaceMode = true
+
+		for _, interEntry := range result.PendingInterruption.MessageIds {
+			if interEntry.IsNavigation || len(result.Entries) == 0 {
+				result.BoundInterruption.MessageIds = append(result.BoundInterruption.MessageIds, interEntry)
+			} else {
+				result.Entries[len(result.Entries)-1].Interruption.MessageIds =
+					append(result.Entries[len(result.Entries)-1].Interruption.MessageIds, interEntry)
+			}
 		}
 
-		result.BoundInterruption = result.PendingInterruption
 		result.PendingInterruption = Interruption{}
 	}
 

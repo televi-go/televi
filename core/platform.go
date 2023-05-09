@@ -11,5 +11,6 @@ type NavProvider interface {
 
 type Platform interface {
 	NavProvider
+	RegisterAction(domain string, action string)
 	GetUser() dto.User
 }

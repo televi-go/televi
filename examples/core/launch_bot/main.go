@@ -48,13 +48,14 @@ func (rootScene RootScene) View(builder builders.Scene) {
 	})
 	builder.Body(func(bodyBuilder builders.ComponentBuilder) {
 		bodyBuilder.Component(views.NavigatorView(func(nav views.Navigator) builders.View {
-			return BodyInnerView{Nav: nav}
+			return BodyInnerView{Nav: nav, platform: rootScene.Platform}
 		}))
 	})
 }
 
 type BodyInnerViewNext struct {
-	Nav views.Navigator
+	Nav      views.Navigator
+	platform core.Platform
 }
 
 func (b BodyInnerViewNext) Init() {}
@@ -64,6 +65,7 @@ func (b BodyInnerViewNext) View(builder builders.ComponentBuilder) {
 		viewBuilder.Text("This is next")
 		viewBuilder.Row(func(builder builders.ActionRowBuilder) {
 			builder.Button("Go back", func(ctx builders.ClickContext) {
+				b.platform.RegisterAction("", "Press back")
 				b.Nav.Pop()
 			})
 		})
@@ -74,6 +76,7 @@ type BodyInnerView struct {
 	State     magic.State[int]
 	BoldState magic.State[bool]
 	Nav       views.Navigator
+	platform  core.Platform
 }
 
 func (bodyInnerView BodyInnerView) Init() {}
@@ -87,12 +90,13 @@ func (bodyInnerView BodyInnerView) View(builder builders.ComponentBuilder) {
 		}
 		viewBuilder.Row(func(builder builders.ActionRowBuilder) {
 			builder.Button("Increase", func(ctx builders.ClickContext) {
+				bodyInnerView.platform.RegisterAction("", "Press increase")
 				bodyInnerView.State.SetValueFn(func(previous int) int {
 					return previous + 1
 				})
 			})
 			builder.Button("Transit", func(ctx builders.ClickContext) {
-				bodyInnerView.Nav.Push(BodyInnerViewNext{Nav: bodyInnerView.Nav})
+				bodyInnerView.Nav.Push(BodyInnerViewNext{Nav: bodyInnerView.Nav, platform: bodyInnerView.platform})
 			})
 			if bodyInnerView.BoldState.Value() {
 				builder.Button("Make regular", func(ctx builders.ClickContext) {

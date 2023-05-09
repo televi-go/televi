@@ -30,3 +30,26 @@ func FilterOut[T any](source []T, filterFn func(elem T) bool) (conforming []T, o
 	}
 	return
 }
+
+func MakePointerArr[T any](source []T) []*T {
+	result := make([]*T, len(source))
+	for i := 0; i < len(source); i++ {
+		result[i] = &source[i]
+	}
+	return result
+}
+
+func UniqueEntries[T any, K comparable](source []T, picker func(T) K) []K {
+	set := make(map[K]bool)
+
+	for _, t := range source {
+		picked := picker(t)
+		set[picked] = true
+	}
+
+	result := make([]K, 0, len(set))
+	for k := range set {
+		result = append(result, k)
+	}
+	return result
+}

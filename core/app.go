@@ -85,7 +85,7 @@ func (app *App) getOrCreateController(destination telegram.Destination, info *dt
 	defer app.controllerAccess.Unlock()
 	controller, hasController := app.controllers[destination.ToString()]
 	if !hasController {
-		controller = NewController(destination, app.api, app.initScene, info, app.Profiler)
+		controller = NewController(destination, app.api, app.initScene, info, app.Profiler, app.Server.DB)
 
 		if app.Server != nil {
 			err := metrics.AddRegistered(app.Server.DB, info)

@@ -1,8 +1,10 @@
 package pages
 
-import "text/template"
+import "html/template"
 
-var ScaffoldTemplate = template.Must(template.New("scaffold").Parse(pageScaffold))
+var ScaffoldTemplate = func() *template.Template {
+	return template.Must(template.New("scaffold").Parse(pageScaffold))
+}
 
 const pageScaffold = `
 <!DOCTYPE html>
@@ -10,12 +12,12 @@ const pageScaffold = `
 <head>
     <meta charset="UTF-8">
     <title>{{ .Title}}</title>
-    <link rel="stylesheet" href="https://www.unpkg.com/televi_assets_x@latest/css/main.css">
+    <link rel="stylesheet" href="https://www.unpkg.com/televi_assets_x@1.6.1/css/main.css">
 </head>
 <body>
 <div class="heading">
     <div class="content-wrap"
-         style="position:relative; height: 80px; display:flex; align-items: center; isolation: isolate">
+         style="position:relative; height: 80px; display:flex; align-items: center;">
         <div id="menu" class="hidden"></div>
         <img src="https://www.unpkg.com/televi_assets_x@latest/images/logo.png"
              style="display: block; position: absolute; height:100%; top:0; left:-90px"
@@ -30,7 +32,7 @@ const pageScaffold = `
     </div>
 </div>
 <div class="content-wrap">
-	<div>
+	<div style="width:100%">
     {{block "BODY" .}}
 	{{end}}
 	</div>
@@ -47,9 +49,9 @@ const pageScaffold = `
     ]
     window.PAGES_DATA = [
         {
-            icon: "account_circle",
-            label: "Profile",
-            link: "/profile"
+            icon: "bolt",
+            label: "Actions",
+            link: "/actions"
         }
     ]
 </script>

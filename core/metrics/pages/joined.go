@@ -1,18 +1,21 @@
 package pages
 
-import "text/template"
+import "html/template"
 
 const joinedBodySource = `
 {{define "BODY"}}
 
-<h2>
-Bot <a href="https://t.me/{{.Name}}">@{{.Name}}</a>
-</h2>
 
 {{range .Groups}}
 
 <div class="grouping-header">
-	{{.Title}}
+	<div class="content">
+		{{.Title}}
+	</div>
+	<div class="divider"></div>
+	<div class="count">
+		{{.Count}}
+	</div>
 </div>
 
 <div class="grouping">
@@ -36,7 +39,7 @@ Bot <a href="https://t.me/{{.Name}}">@{{.Name}}</a>
 {{end}}
 `
 
-var JoinedPageTemplate = template.Must(ScaffoldTemplate.Parse(joinedBodySource))
+var JoinedPageTemplate = template.Must(ScaffoldTemplate().Parse(joinedBodySource))
 
 type JoinedAt struct {
 	FirstName   string
@@ -47,7 +50,16 @@ type JoinedAt struct {
 
 type Group struct {
 	Title string
+	Count int
 	Users []JoinedAt
+}
+
+func MakeGroup(title string, users []JoinedAt) Group {
+	return Group{
+		Title: title,
+		Count: len(users),
+		Users: users,
+	}
 }
 
 type JoinedPageViewData struct {
