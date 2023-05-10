@@ -15,6 +15,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 )
 
@@ -156,7 +157,7 @@ func (landing LandingScene) Dispose() {
 func (landing LandingScene) OnMessage(message dto.Message) {}
 
 func main() {
-	fmt.Printf("Process %d\n", os.Getpid())
+	fmt.Printf("Process %d\nEnv: %s\n", os.Getpid(), strings.Join(os.Environ(), "\n"))
 	app, err := core.NewAppBuilder().
 		WithEnvToken("Token").
 		WithDefaultAddress().
