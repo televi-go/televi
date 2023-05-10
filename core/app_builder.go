@@ -30,7 +30,7 @@ func (builder appBuilder) WithServerSetup(f func(router fiber.Router, db *sql.DB
 	api := bot.NewApi(builder.token, builder.address)
 	resp, err := api.Request(bot.GetMeRequest{})
 	if err != nil {
-		panic(fmt.Errorf("error establishing bot %v", err))
+		panic(fmt.Errorf("error establishing bot %v, %s", err, builder.token))
 	}
 
 	user, _ := telegram.ParseAs[dto.User](resp)
