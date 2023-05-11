@@ -66,7 +66,6 @@ func NewApp(
 	}
 
 	api := bot.NewApi(token, address)
-
 	return &App{
 		controllers:      map[string]*Controller{},
 		controllerAccess: sync.Mutex{},
